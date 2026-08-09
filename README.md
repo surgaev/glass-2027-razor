@@ -132,7 +132,7 @@ Ollama runs any LLM you point it at, but **model size vs. your RAM is the real c
 
 This fork tracks [pickle-com/glass](https://github.com/pickle-com/glass) — all credit for the original app, design, and architecture goes to the Pickle team. This fork exists to bring it up to date with current realities (OpenAI's Beta→GA Realtime API migration, newer GPT-5.x/gpt-live-transcribe models) and to fix the local Whisper+VAD path for real day-to-day use — see [This Fork's Changes](#this-forks-changes) above for the full list. For the upstream project's roadmap, contributing guide, and community, see the [original repository](https://github.com/pickle-com/glass) and their [Discord](https://discord.gg/UCZH5B5Hpd).
 
-See [what's different from upstream](https://github.com/surgaev/glass-2027-razor/compare/main...pickle-com:glass:main) for a live, generated diff.
+See [what's different from upstream](https://github.com/pickle-com/glass/compare/main...surgaev:glass-2027-razor:main) for a live, generated diff.
 
 ## Maintainer & Contact
 
@@ -268,3 +268,11 @@ Ollama запустит любую LLM, на которую её направи�
 ## Благодарности и оригинальный проект
 
 Этот форк отслеживает [pickle-com/glass](https://github.com/pickle-com/glass) — вся заслуга за оригинальное приложение, дизайн и архитектуру принадлежит команде Pickle. Этот форк существует, чтобы довести проект до текущих реалий (миграция OpenAI Beta→GA Realtime API, новые модели GPT-5.x/gpt-live-transcribe) и починить путь локального Whisper+VAD для реального повседневного использования — полный список см. в разделе [Что изменено в этом форке](#что-изменено-в-этом-форке) выше. Дорожную карту, гайд по контрибьютингу и сообщество оригинального проекта смотри в [исходном репозитории](https://github.com/pickle-com/glass) и их [Discord](https://discord.gg/UCZH5B5Hpd).
+
+Смотри [чем этот форк отличается от оригинала](https://github.com/pickle-com/glass/compare/main...surgaev:glass-2027-razor:main) — живой, автоматически формируемый diff.
+
+## Автор и контакты
+
+Ведёт **Surgaev** — [www.surgaev.ru/eng](https://www.surgaev.ru/eng/) · Telegram: [@surgaev](https://t.me/surgaev)
+
+Баг-репорты и предложения фич: [Issues](https://github.com/surgaev/glass-2027-razor/issues). Общие вопросы и идеи: [Discussions](https://github.com/surgaev/glass-2027-razor/discussions). Перед PR смотри [CONTRIBUTING.md](./CONTRIBUTING.md) и [ROADMAP.md](./ROADMAP.md).
