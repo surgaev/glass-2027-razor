@@ -1,18 +1,14 @@
 <p align="center">
-  <a href="https://pickle.com/glass">
+  <a href="https://github.com/pickle-com/glass">
    <img src="./public/assets/banner.gif" alt="Logo">
   </a>
 
-  <h1 align="center">Glass by Pickle: Digital Mind Extension 🧠</h1>
+  <h1 align="center">Glass 2027 Razor 🪒🧠</h1>
+  <p align="center"><i>A personal local-first fork of <a href="https://github.com/pickle-com/glass">Glass by Pickle</a></i></p>
 
 </p>
 
-
-<p align="center">
-  <a href="https://discord.gg/UCZH5B5Hpd"><img src="./public/assets/button_dc.png" width="80" alt="Pickle Discord"></a>&ensp;<a href="https://pickle.com"><img src="./public/assets/button_we.png" width="105" alt="Pickle Website"></a>&ensp;<a href="https://x.com/intent/user?screen_name=leinadpark"><img src="./public/assets/button_xe.png" width="109" alt="Follow Daniel"></a>
-</p>
-
-> This project is a fork of [CheatingDaddy](https://github.com/sohzm/cheating-daddy) with modifications and enhancements. Thanks to [Soham](https://x.com/soham_btw) and all the open-source contributors who made this possible!
+> This is a personal fork of [pickle-com/glass](https://github.com/pickle-com/glass), which is itself a fork of [CheatingDaddy](https://github.com/sohzm/cheating-daddy). Thanks to the Pickle team, [Soham](https://x.com/soham_btw), and all the open-source contributors who made the original project possible.
 
 🤖 **Fast, light & open-source**—Glass lives on your desktop, sees what you see, listens in real time, understands your context, and turns every moment into structured knowledge.
 
@@ -20,11 +16,7 @@
 
 🫥️ **Truly invisible**—never shows up in screen recordings, screenshots, or your dock; no always-on capture or hidden sharing.
 
-To have fun building with us, join our [Discord](https://discord.gg/UCZH5B5Hpd)!
-
-## Instant Launch
-
-⚡️  Skip the setup—launch instantly with our ready-to-run macOS app.  [[Download Here]](https://www.dropbox.com/scl/fi/znid09apxiwtwvxer6oc9/Glass_latest.dmg?rlkey=gwvvyb3bizkl25frhs4k1zwds&st=37q31b4w&dl=1)
+🪒 **This fork's focus**—a debugged, tuned local-first setup: accurate offline Whisper + VAD speech recognition, a working OpenAI GA-API integration, and several UX/reliability fixes made while running it day-to-day on macOS.
 
 ## Quick Start (Local Build)
 
@@ -53,7 +45,6 @@ npm run setup
 
 ## Highlights
 
-
 ### Ask: get answers based on all your previous screen actions & audio
 
 <img width="100%" alt="booking-screen" src="./public/assets/00.gif">
@@ -62,26 +53,14 @@ npm run setup
 
 <img width="100%" alt="booking-screen" src="./public/assets/01.gif">
 
-### Use your own API key, or sign up to use ours (free)
+### Use your own API key
 
 <img width="100%" alt="booking-screen" src="./public/assets/02.gif">
 
 **Currently Supporting:**
-- OpenAI API: Get OpenAI API Key [here](https://platform.openai.com/api-keys)
-- Gemini API: Get Gemini API Key [here](https://aistudio.google.com/apikey)
-- Local LLM Ollama & Whisper
-
-### Liquid Glass Design (coming soon)
-
-<img width="100%" alt="booking-screen" src="./public/assets/03.gif">
-
-<p>
-  for a more detailed guide, please refer to this <a href="https://www.youtube.com/watch?v=qHg3_4bU1Dw">video.</a>
-  <i style="color:gray; font-weight:300;">
-    we don't waste money on fancy vids; we just code.
-  </i>
-</p>
-
+- OpenAI API: Get an OpenAI API Key [here](https://platform.openai.com/api-keys) — includes the July 2026 `gpt-live-transcribe` model for low-latency, noise-robust live transcription
+- Gemini API: Get a Gemini API Key [here](https://aistudio.google.com/apikey)
+- Local LLM via Ollama, local STT via Whisper + Silero VAD (fully offline, no API key needed)
 
 ## Keyboard Shortcuts
 
@@ -117,44 +96,103 @@ curl -L -o ~/.glass/whisper/models/ggml-silero-v6.2.0.bin \
   "https://huggingface.co/ggml-org/whisper-vad/resolve/main/ggml-silero-v6.2.0.bin"
 ```
 
-## Repo Activity
+## Credits & Upstream
 
-![Alt](https://repobeats.axiom.co/api/embed/a23e342faafa84fa8797fa57762885d82fac1180.svg "Repobeats analytics image")
+This fork tracks [pickle-com/glass](https://github.com/pickle-com/glass). For the upstream project's roadmap, contributing guide, and community, see the original repository and their [Discord](https://discord.gg/UCZH5B5Hpd).
 
-## Contributing
+---
 
-We love contributions! Feel free to open issues for bugs or feature requests. For detailed guide, please see our [contributing guide](/CONTRIBUTING.md).
-> Currently, we're working on a full code refactor and modularization. Once that's completed, we'll jump into addressing the major issues.
+<h1 align="center">Glass 2027 Razor 🪒🧠 (Русская версия)</h1>
+<p align="center"><i>Личный локально-ориентированный форк <a href="https://github.com/pickle-com/glass">Glass by Pickle</a></i></p>
 
-### Contributors
+> Это личный форк [pickle-com/glass](https://github.com/pickle-com/glass), который сам является форком [CheatingDaddy](https://github.com/sohzm/cheating-daddy). Спасибо команде Pickle, [Soham](https://x.com/soham_btw) и всем opensource-контрибьюторам, благодаря которым появился оригинальный проект.
 
-<a href="https://github.com/pickle-com/glass/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=pickle-com/glass" />
-</a>
+🤖 **Быстрый, лёгкий и открытый исходный код** — Glass живёт на твоём рабочем столе, видит то же, что и ты, слушает в реальном времени, понимает контекст и превращает каждый момент в структурированное знание.
 
-### Help Wanted Issues
+💬 **Проактивен на встречах** — сразу выдаёт пункты действий, саммари и ответы, как только они нужны.
 
-We have a list of [help wanted](https://github.com/pickle-com/glass/issues?q=is%3Aissue%20state%3Aopen%20label%3A%22%F0%9F%99%8B%E2%80%8D%E2%99%82%EF%B8%8Fhelp%20wanted%22) that contain small features and bugs which have a relatively limited scope. This is a great place to get started, gain experience, and get familiar with our contribution process.
+🫥️ **Полностью невидим** — никогда не попадает в запись экрана, скриншоты или док; без скрытого постоянного захвата данных.
 
+🪒 **Фокус этого форка** — отлаженная и настроенная локальная конфигурация: точное офлайн-распознавание речи (Whisper + VAD), рабочая интеграция с новым GA API OpenAI, и ряд UX/надёжностных правок, сделанных в процессе повседневного использования на macOS.
 
-### 🛠 Current Issues & Improvements
+## Быстрый старт (локальная сборка)
 
-| Status | Issue                          | Description                                       |
-|--------|--------------------------------|---------------------------------------------------|
-| 🚧 WIP      | Liquid Glass                    | Liquid Glass UI for MacOS 26 |
+### Предварительные требования
 
-### Changelog
+Сначала скачай и установи [Python](https://www.python.org/downloads/) и [Node](https://nodejs.org/en/download).
+Если используешь Windows, дополнительно понадобятся [Build Tools for Visual Studio](https://visualstudio.microsoft.com/downloads/).
 
-- Jul 5: Now support Gemini, Intel Mac supported
-- Jul 6: Full code refactoring has done.
-- Jul 7: Now support Claude, LLM/STT model selection
-- Jul 8: Now support Windows(beta), Improved AEC by Rust(to seperate mic/system audio), shortcut editing(beta)
-- Jul 8: Now support Local LLM & STT, Firebase Data Storage 
+Убедись, что используешь Node.js версии 20.x.x — иначе возможны ошибки сборки нативных зависимостей.
 
+```bash
+# Проверить версию Node.js
+node --version
 
-## About Pickle
+# Если нужно установить Node.js 20.x.x, рекомендуем через nvm:
+# curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash
+# nvm install 20
+# nvm use 20
+```
 
-**Our mission is to build a living digital clone for everyone.** Glass is part of Step 1—a trusted pipeline that transforms your daily data into a scalable clone. Visit [pickle.com](https://pickle.com) to learn more.
+### Установка
 
-## Star History
-[![Star History Chart](https://api.star-history.com/svg?repos=pickle-com/glass&type=Date)](https://www.star-history.com/#pickle-com/glass&Date)
+```bash
+npm run setup
+```
+
+## Возможности
+
+### Ask: получай ответы на основе всей истории экрана и звука
+
+<img width="100%" alt="booking-screen" src="./public/assets/00.gif">
+
+### Встречи: заметки в реальном времени, живые саммари, записи сессий
+
+<img width="100%" alt="booking-screen" src="./public/assets/01.gif">
+
+### Используй свой собственный API-ключ
+
+<img width="100%" alt="booking-screen" src="./public/assets/02.gif">
+
+**Сейчас поддерживается:**
+- OpenAI API: получить ключ можно [здесь](https://platform.openai.com/api-keys) — включая модель `gpt-live-transcribe` (июль 2026) для быстрой, устойчивой к шуму живой транскрипции
+- Gemini API: получить ключ можно [здесь](https://aistudio.google.com/apikey)
+- Локальный LLM через Ollama, локальный STT через Whisper + Silero VAD (полностью офлайн, без API-ключа)
+
+## Горячие клавиши
+
+`Ctrl/Cmd + \` : показать/скрыть главное окно
+
+`Ctrl/Cmd + Enter` : задать вопрос ИИ на основе всей истории экрана и звука
+
+`Ctrl/Cmd + стрелки` : переместить главное окно
+
+## Что изменено в этом форке
+
+Это личный форк с исправлениями и улучшениями, сделанными в процессе отладки локальной работы на macOS:
+
+- **Локальный Whisper + VAD для точного офлайн-распознавания** — нарезка живого потока теперь идёт по обнаруженным паузам речи (энергетический VAD в `src/features/common/ai/providers/whisper.js`) вместо жёсткого таймера — устранены обрывы слов посередине. Добавлена [Silero VAD](https://huggingface.co/ggml-org/whisper-vad) на уровне `whisper-cli`, чтобы убрать выдуманные субтитры на тишине/фоновой музыке, плюс чёрный список типичных фраз-галлюцинаций (`src/features/listen/stt/sttService.js`) для тех, что всё же проскакивают.
+- **Исправлено несовпадение частоты дискретизации** между захватом звука в рендерере (24kHz) и WAV-заголовком, который получал Whisper (был жёстко прописан как 16kHz) в `src/features/common/services/whisperService.js`.
+- **Исправлено дублирование строк транскрипта** в интерфейсе Listen — ветка OpenAI Whisper в `sttService.js` отправляла каждую транскрипцию в интерфейс дважды (сразу и повторно через debounce/flush).
+- **Миграция OpenAI Realtime STT (`src/features/common/ai/providers/openai.js`) со старого Beta API на новый GA API** (OpenAI отключили бета-версию в мае 2026) — новый формат события `session.update`, убран заголовок `OpenAI-Beta`, возвращён параметр `?intent=transcription`.
+- **Исправлены вызовы моделей GPT-5.x** — новые reasoning-модели не принимают кастомную `temperature` (только дефолт `1`) и требуют `max_completion_tokens` вместо `max_tokens`; оба момента теперь корректно обрабатываются в `src/features/common/ai/providers/openai.js`.
+- **Исправлен баг парсинга потокового ответа** в `src/features/ask/askService.js` — `TextDecoder.decode()` вызывался без `{ stream: true }`, а строки SSE не буферизовались между сетевыми чанками, из-за чего многобайтовые символы (кириллица и т.д.) молча портились или терялись посреди потока.
+- **Сокращён промпт анализа Insights** для существенно меньшего расхода токенов, добавлен накапливающийся список вопросов (раньше каждый 5-реплико́вый цикл анализа полностью заменял список; теперь новые вопросы добавляются, а не стирают старые), и убран избыточный блок "Current Summary" из панели Insights.
+- **Облачный STT переключён на `gpt-live-transcribe`** (модель OpenAI для низколатентной живой транскрипции, июль 2026) вместо `gpt-4o-mini-transcribe` — заметно лучше держит шумную реальную речь и фоновый шум.
+- **Добавлена настраиваемая величина шрифта ответов Ask** (Settings → слайдер Response Font Size), синхронизируется между окнами через IPC + `electron-store`, а не через `localStorage` (который здесь ненадёжно шарится между отдельными `BrowserWindow`).
+- **Отключено автоматическое открытие DevTools** на каждом окне в dev-режиме (теперь управляется переменной окружения `GLASS_DEVTOOLS=1`, по умолчанию выключено).
+
+### Настройка локального Whisper + VAD с нуля
+
+Glass сам скачивает модель Whisper при первом использовании. Модель VAD требует одного ручного шага:
+
+```bash
+brew install whisper-cpp
+mkdir -p ~/.glass/whisper/models
+curl -L -o ~/.glass/whisper/models/ggml-silero-v6.2.0.bin \
+  "https://huggingface.co/ggml-org/whisper-vad/resolve/main/ggml-silero-v6.2.0.bin"
+```
+
+## Благодарности и оригинальный проект
+
+Этот форк отслеживает [pickle-com/glass](https://github.com/pickle-com/glass). Дорожную карту, гайд по контрибьютингу и сообщество оригинального проекта смотри в исходном репозитории и их [Discord](https://discord.gg/UCZH5B5Hpd).
