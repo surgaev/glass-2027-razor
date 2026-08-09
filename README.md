@@ -18,9 +18,22 @@
 
 🪒 **This fork's focus**—a debugged, tuned local-first setup: accurate offline Whisper + VAD speech recognition, a working OpenAI GA-API integration, and several UX/reliability fixes made while running it day-to-day on macOS.
 
-## Quick Start (Local Build)
+## Install Glass 2027 Razor
 
-### Prerequisites
+### Option A — download the pre-built app (fastest)
+
+⚡️ Download the latest **Glass 2027 Razor** build for macOS (Intel + Apple Silicon universal binary) from [**Releases**](https://github.com/surgaev/glass-2027-razor/releases/latest) — grab the `.dmg`.
+
+> **This build is unsigned** (no Apple Developer certificate — see [Choosing an OpenAI model, topping up...](#choosing-an-openai-model-topping-up-and-tracking-spend) above for why that's a real recurring cost, not a one-time thing worth passing on for a personal fork). macOS Gatekeeper will refuse to open it with "Glass 2027 Razor is damaged and can't be opened" or similar. To run it anyway:
+> 1. Move `Glass 2027 Razor.app` to `/Applications`.
+> 2. Either **right-click → Open** (not double-click) and confirm in the dialog that appears, **or** if that doesn't work, run once in Terminal: `xattr -cr "/Applications/Glass 2027 Razor.app"` — this strips the quarantine flag macOS puts on downloaded apps, which is what triggers the "damaged" message on unsigned builds.
+> This is standard for any unsigned/unnotarized macOS app, not something specific to this build — verify what you're running before doing this for anything you didn't build yourself.
+
+### Option B — build this fork from source
+
+Building from source gets you this fork's exact code (including all the fixes in [This Fork's Changes](#this-forks-changes) below) rather than whatever binary happens to be attached to the latest release — useful if you want to modify something, or just don't want to trust a downloaded binary.
+
+#### Prerequisites
 
 First download & install [Python](https://www.python.org/downloads/) and [Node](https://nodejs.org/en/download).
 If you are using Windows, you need to also install [Build Tools for Visual Studio](https://visualstudio.microsoft.com/downloads/)
@@ -37,11 +50,13 @@ node --version
 # nvm use 20
 ```
 
-### Installation
+#### Build & run
 
 ```bash
 npm run setup
 ```
+
+This clones-in-place (you're already in the repo), installs dependencies, builds the renderer and web UI, and launches Glass 2027 Razor — not a generic "install some app" command, this specifically builds *this* repository's code as it sits on your disk right now.
 
 ## Highlights
 
@@ -155,9 +170,22 @@ Bug reports and feature requests: [Issues](https://github.com/surgaev/glass-2027
 
 🪒 **Фокус этого форка** — отлаженная и настроенная локальная конфигурация: точное офлайн-распознавание речи (Whisper + VAD), рабочая интеграция с новым GA API OpenAI, и ряд UX/надёжностных правок, сделанных в процессе повседневного использования на macOS.
 
-## Быстрый старт (локальная сборка)
+## Установка Glass 2027 Razor
 
-### Предварительные требования
+### Вариант A — скачать готовую сборку (быстрее всего)
+
+⚡️ Скачай последнюю сборку **Glass 2027 Razor** для macOS (универсальный бинарник Intel + Apple Silicon) со страницы [**Releases**](https://github.com/surgaev/glass-2027-razor/releases/latest) — файл `.dmg`.
+
+> **Эта сборка без цифровой подписи** (нет сертификата Apple Developer — см. раздел про OpenAI выше насчёт того, почему платные подписки не одноразовая история для личного форка). macOS Gatekeeper откажется её открывать с сообщением вроде "Glass 2027 Razor повреждено и не может быть открыто". Чтобы всё же запустить:
+> 1. Перетащи `Glass 2027 Razor.app` в `/Applications`.
+> 2. Либо **правый клик → Открыть** (не двойной клик) и подтверди в появившемся диалоге, **либо**, если не сработало — выполни один раз в Терминале: `xattr -cr "/Applications/Glass 2027 Razor.app"` — это снимает флаг карантина, который macOS ставит на скачанные приложения, именно он вызывает сообщение "повреждено" на неподписанных сборках.
+> Это стандартная процедура для любого неподписанного/ненотаризованного macOS-приложения, не специфика конкретно этой сборки — проверяй, что именно запускаешь, прежде чем так делать для чужого софта, который сам не собирал.
+
+### Вариант B — собрать этот форк из исходников
+
+Сборка из исходников даёт тебе именно код этого форка (включая все правки из раздела [Что изменено в этом форке](#что-изменено-в-этом-форке) ниже), а не то, что случайно оказалось прикреплено к последнему релизу — полезно, если хочешь что-то поменять сам, или просто не хочешь доверять скачанному бинарнику.
+
+#### Предварительные требования
 
 Сначала скачай и установи [Python](https://www.python.org/downloads/) и [Node](https://nodejs.org/en/download).
 Если используешь Windows, дополнительно понадобятся [Build Tools for Visual Studio](https://visualstudio.microsoft.com/downloads/).
@@ -174,11 +202,13 @@ node --version
 # nvm use 20
 ```
 
-### Установка
+#### Сборка и запуск
 
 ```bash
 npm run setup
 ```
+
+Это (раз ты уже внутри репозитория) ставит зависимости, собирает рендерер и веб-часть, и запускает Glass 2027 Razor — не абстрактная команда "поставь какое-то приложение", а сборка именно кода этого репозитория, который сейчас у тебя на диске.
 
 ## Возможности
 
