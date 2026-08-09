@@ -1,5 +1,4 @@
 const { BrowserWindow } = require('electron');
-const { getSystemPrompt } = require('../../common/prompts/promptBuilder.js');
 const { createLLM } = require('../../common/ai/factory');
 const sessionRepository = require('../../common/repositories/session');
 const summaryRepository = require('./repositories');
@@ -67,7 +66,7 @@ class SummaryService {
         return conversationTexts.slice(-maxTurns).join('\n');
     }
 
-    async makeOutlineAndRequests(conversationTexts, maxTurns = 30) {
+    async makeOutlineAndRequests(conversationTexts, maxTurns = 15) {
         console.log(`🔍 makeOutlineAndRequests called - conversationTexts: ${conversationTexts.length}`);
 
         if (conversationTexts.length === 0) {
@@ -90,8 +89,18 @@ Please build upon this context while analyzing the new conversation segments.
 `;
         }
 
-        const basePrompt = getSystemPrompt('pickle_glass_analysis', '', false);
-        const systemPrompt = basePrompt.replace('{{CONVERSATION_HISTORY}}', recentConversation);
+        // Dedicated compact prompt for live-conversation summarization — the full
+        // pickle_glass_analysis interview-copilot prompt (~2,500 tokens) is unnecessary
+        // here and was being re-sent on every trigger, burning tokens for no benefit.
+        const systemPrompt = `You are a live-conversation summarizer. You will be given a transcript of an ongoing conversation between "me" and "them".
+Write all bullet points, explanations, and content in Russian (русский язык).
+IMPORTANT: keep the literal section markers exactly as specified in English ("**Summary Overview**", "**Key Topic: [Topic Name]**", "**Extended Explanation**", "**Suggested Questions**") — only translate the content that follows each marker, never the marker itself.
+Be concise and factual; do not invent details not present in the transcript.
+
+Transcript:
+-----
+${recentConversation}
+-----`;
 
         try {
             if (this.currentSessionId) {
@@ -190,7 +199,10 @@ Keep all points concise and build upon previous analysis if provided.`,
         const structuredData = {
             summary: [],
             topic: { header: '', bullets: [] },
-            actions: [],
+            // Carry forward previously accumulated real questions (the ❓-prefixed ones,
+            // excluding the two fixed default actions which get re-appended below) so the
+            // list grows across the session instead of being replaced each analysis run.
+            actions: previousResult ? previousResult.actions.filter(a => a.startsWith('❓')) : [],
             followUps: ['✉️ Draft a follow-up email', '✅ Generate action items', '📝 Show summary'],
         };
 
@@ -259,21 +271,29 @@ Keep all points concise and build upon previous analysis if provided.`,
                 } else if (trimmedLine.match(/^\d+\./) && currentSection === 'questions') {
                     const question = trimmedLine.replace(/^\d+\.\s*/, '').trim();
                     if (question && question.includes('?')) {
-                        structuredData.actions.push(`❓ ${question}`);
+                        const entry = `❓ ${question}`;
+                        // Newest questions first, skip exact duplicates from earlier rounds.
+                        if (!structuredData.actions.includes(entry)) {
+                            structuredData.actions.unshift(entry);
+                        }
                     }
                 }
             }
 
-            // 기본 액션 추가
+            // Cap the accumulated question list generously so it keeps growing across
+            // the session (previously this was capped at 5 and reset every round).
+            const MAX_ACCUMULATED_QUESTIONS = 30;
+            if (structuredData.actions.length > MAX_ACCUMULATED_QUESTIONS) {
+                structuredData.actions = structuredData.actions.slice(0, MAX_ACCUMULATED_QUESTIONS);
+            }
+
+            // Fixed default actions always pinned at the end, after the accumulated questions.
             const defaultActions = ['✨ What should I say next?', '💬 Suggest follow-up questions'];
             defaultActions.forEach(action => {
                 if (!structuredData.actions.includes(action)) {
                     structuredData.actions.push(action);
                 }
             });
-
-            // 액션 개수 제한
-            structuredData.actions = structuredData.actions.slice(0, 5);
 
             // 유효성 검증 및 이전 데이터 병합
             if (structuredData.summary.length === 0 && previousResult) {

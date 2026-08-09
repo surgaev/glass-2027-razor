@@ -505,6 +505,7 @@ export class SettingsView extends LitElement {
         installingModels: { type: Object, state: true },
         // Whisper related properties
         whisperModels: { type: Array, state: true },
+        askResponseFontSize: { type: Number, state: true },
     };
     //////// after_modelStateService ////////
 
@@ -537,6 +538,13 @@ export class SettingsView extends LitElement {
         this.handleUsePicklesKey = this.handleUsePicklesKey.bind(this)
         this.autoUpdateEnabled = true;
         this.autoUpdateLoading = true;
+        this.askResponseFontSize = 14;
+        this.handleFontSizeChange = this.handleFontSizeChange.bind(this);
+        if (window.api?.settingsView?.getFontSize) {
+            window.api.settingsView.getFontSize().then(size => {
+                this.askResponseFontSize = size;
+            });
+        }
         this.loadInitialData();
         //////// after_modelStateService ////////
     }
@@ -901,11 +909,17 @@ export class SettingsView extends LitElement {
     handleUsePicklesKey(e) {
         e.preventDefault()
         if (this.wasJustDragged) return
-    
+
         console.log("Requesting Firebase authentication from main process...")
         window.api.settingsView.startFirebaseAuth();
     }
     //////// after_modelStateService ////////
+
+    handleFontSizeChange(e) {
+        const size = parseInt(e.target.value, 10);
+        this.askResponseFontSize = size;
+        window.api?.settingsView?.setFontSize?.(size);
+    }
 
     openShortcutEditor() {
         window.api.settingsView.openShortcutSettingsWindow();
@@ -1375,7 +1389,23 @@ export class SettingsView extends LitElement {
                     </button>
                 </div>
 
-                
+                <div class="appearance-section" style="border-top: 1px solid rgba(255, 255, 255, 0.1); padding-top: 6px; margin-top: 6px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; font-size: 11px; margin-bottom: 4px;">
+                        <span>Response Font Size</span>
+                        <span>${this.askResponseFontSize}px</span>
+                    </div>
+                    <input
+                        type="range"
+                        min="11"
+                        max="24"
+                        step="1"
+                        .value=${this.askResponseFontSize}
+                        @input=${this.handleFontSizeChange}
+                        style="width: 100%;"
+                    />
+                </div>
+
+
                 <div class="shortcuts-section">
                     ${this.getMainShortcuts().map(shortcut => html`
                         <div class="shortcut-item">

@@ -535,7 +535,7 @@ class WhisperService extends EventEmitter {
 
     createWavHeader(dataSize) {
         const header = Buffer.alloc(44);
-        const sampleRate = 16000;
+        const sampleRate = 24000;
         const numChannels = 1;
         const bitsPerSample = 16;
         

@@ -5,6 +5,67 @@ const modelStateService = require('../../common/services/modelStateService');
 
 const COMPLETION_DEBOUNCE_MS = 2000;
 
+// Known Whisper hallucination phrases: the model reproduces these verbatim from its
+// YouTube-caption training data when fed silence, background noise, or near-silent audio.
+// Matched case-insensitively as substrings against the transcription result.
+const WHISPER_HALLUCINATION_PATTERNS = [
+    'редактор субтитров',
+    'корректор а.',
+    'субтитры сделал',
+    'субтитры создавал',
+    'субтитры подготовил',
+    'продолжение следует',
+    'спасибо за просмотр',
+    'подписывайтесь на канал',
+    'ставьте лайк',
+    'с вами был',
+    'с вами была',
+    'увидимся в следующем видео',
+    'thanks for watching',
+    'thank you for watching',
+    'subscribe to my channel',
+    'please subscribe',
+    'see you next time',
+    // Music / sound caption phrases (safe as substrings — unlikely in real speech)
+    'динамичная музыка',
+    'спокойная музыка',
+    'тревожная музыка',
+    'напряжённая музыка',
+    'напряженная музыка',
+    'грустная музыка',
+    'весёлая музыка',
+    'веселая музыка',
+    'играет музыка',
+    'музыка играет',
+    'звучит музыка',
+    'фоновая музыка',
+];
+
+// Short standalone sound/music captions — matched only when they make up the ENTIRE
+// chunk, because these words ("музыка", "сигнал", "смех") also occur in normal speech.
+const WHISPER_STANDALONE_CAPTIONS = [
+    'музыка',
+    'сигнал',
+    'смех',
+    'аплодисменты',
+    'звонок',
+    'гудок',
+    'тишина',
+    'шум',
+    'звонит телефон',
+    'играет гитара',
+];
+
+function isLikelyWhisperHallucination(text) {
+    const lower = text.toLowerCase();
+    if (WHISPER_HALLUCINATION_PATTERNS.some(pattern => lower.includes(pattern))) {
+        return true;
+    }
+    // Strip surrounding punctuation/brackets/whitespace for the exact-match check
+    const stripped = lower.replace(/[\s\[\](){}.,!?«»"'*-]/g, '');
+    return WHISPER_STANDALONE_CAPTIONS.some(caption => stripped === caption.replace(/\s/g, ''));
+}
+
 // ── New heartbeat / renewal constants ────────────────────────────────────────────
 // Interval to send low-cost keep-alive messages so the remote service does not
 // treat the connection as idle. One minute is safely below the typical 2-5 min
@@ -185,21 +246,13 @@ class SttService {
                         '(NOISE)'
                     ];
                     
-                    const isNoise = noisePatterns.some(pattern => 
+                    const isNoise = noisePatterns.some(pattern =>
                         finalText.includes(pattern) || finalText === pattern
-                    );
-                    
-                    
+                    ) || isLikelyWhisperHallucination(finalText);
+
+
                     if (!isNoise && finalText.length > 2) {
                         this.debounceMyCompletion(finalText);
-                        
-                        this.sendToRenderer('stt-update', {
-                            speaker: 'Me',
-                            text: finalText,
-                            isPartial: false,
-                            isFinal: true,
-                            timestamp: Date.now(),
-                        });
                     } else {
                         console.log(`[Whisper-Me] Filtered noise: "${finalText}"`);
                     }
@@ -326,22 +379,14 @@ class SttService {
                         '(NOISE)'
                     ];
                     
-                    const isNoise = noisePatterns.some(pattern => 
+                    const isNoise = noisePatterns.some(pattern =>
                         finalText.includes(pattern) || finalText === pattern
-                    );
-                    
-                    
+                    ) || isLikelyWhisperHallucination(finalText);
+
+
                     // Only process if it's not noise, not a false positive, and has meaningful content
                     if (!isNoise && finalText.length > 2) {
                         this.debounceTheirCompletion(finalText);
-                        
-                        this.sendToRenderer('stt-update', {
-                            speaker: 'Them',
-                            text: finalText,
-                            isPartial: false,
-                            isFinal: true,
-                            timestamp: Date.now(),
-                        });
                     } else {
                         console.log(`[Whisper-Them] Filtered noise: "${finalText}"`);
                     }

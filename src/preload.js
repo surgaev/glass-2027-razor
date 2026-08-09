@@ -163,7 +163,11 @@ contextBridge.exposeInMainWorld('api', {
     // Listeners
     onShowTextInput: (callback) => ipcRenderer.on('ask:showTextInput', callback),
     removeOnShowTextInput: (callback) => ipcRenderer.removeListener('ask:showTextInput', callback),
-    
+
+    getFontSize: () => ipcRenderer.invoke('settings:get-font-size'),
+    onFontSizeUpdate: (callback) => ipcRenderer.on('ask:fontSizeUpdate', callback),
+    removeOnFontSizeUpdate: (callback) => ipcRenderer.removeListener('ask:fontSizeUpdate', callback),
+
     onScrollResponseUp: (callback) => ipcRenderer.on('aks:scrollResponseUp', callback),
     removeOnScrollResponseUp: (callback) => ipcRenderer.removeListener('aks:scrollResponseUp', callback),
     onScrollResponseDown: (callback) => ipcRenderer.on('aks:scrollResponseDown', callback),
@@ -200,6 +204,10 @@ contextBridge.exposeInMainWorld('api', {
 
   // src/ui/settings/SettingsView.js
   settingsView: {
+    // Appearance
+    getFontSize: () => ipcRenderer.invoke('settings:get-font-size'),
+    setFontSize: (size) => ipcRenderer.invoke('settings:set-font-size', size),
+
     // User & Auth
     getCurrentUser: () => ipcRenderer.invoke('get-current-user'),
     openPersonalizePage: () => ipcRenderer.invoke('open-personalize-page'),

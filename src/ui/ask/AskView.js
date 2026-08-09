@@ -119,7 +119,7 @@ export class AskView extends LitElement {
 
         .response-container code {
             font-family: 'Monaco', 'Menlo', 'Consolas', monospace !important;
-            font-size: 11px !important;
+            font-size: calc(var(--ask-response-font-size, 14px) - 3px) !important;
             background: transparent !important;
             white-space: pre !important;
             word-wrap: normal !important;
@@ -365,7 +365,7 @@ export class AskView extends LitElement {
             padding: 16px;
             padding-left: 48px;
             overflow-y: auto;
-            font-size: 14px;
+            font-size: var(--ask-response-font-size, 14px);
             line-height: 1.6;
             background: transparent;
             min-height: 0;
@@ -732,6 +732,8 @@ export class AskView extends LitElement {
         this.smdContainer = null;
         this.lastProcessedLength = 0;
 
+        this._handleFontSizeUpdate = this._handleFontSizeUpdate.bind(this);
+
         this.handleSendText = this.handleSendText.bind(this);
         this.handleTextKeydown = this.handleTextKeydown.bind(this);
         this.handleCopy = this.handleCopy.bind(this);
@@ -751,6 +753,11 @@ export class AskView extends LitElement {
         super.connectedCallback();
 
         console.log('📱 AskView connectedCallback - IPC 이벤트 리스너 설정');
+
+        if (window.api?.askView?.getFontSize) {
+            window.api.askView.getFontSize().then(size => this._setFontSizeVar(size));
+        }
+        window.api?.askView?.onFontSizeUpdate?.(this._handleFontSizeUpdate);
 
         document.addEventListener('keydown', this.handleEscKey);
 
@@ -807,12 +814,24 @@ export class AskView extends LitElement {
         }
     }
 
+    _setFontSizeVar(size) {
+        const parsed = parseInt(size, 10);
+        if (!isNaN(parsed)) {
+            this.style.setProperty('--ask-response-font-size', `${parsed}px`);
+        }
+    }
+
+    _handleFontSizeUpdate(event, size) {
+        this._setFontSizeVar(size);
+    }
+
     disconnectedCallback() {
         super.disconnectedCallback();
         this.resizeObserver?.disconnect();
 
         console.log('📱 AskView disconnectedCallback - IPC 이벤트 리스너 제거');
 
+        window.api?.askView?.removeOnFontSizeUpdate?.(this._handleFontSizeUpdate);
         document.removeEventListener('keydown', this.handleEscKey);
 
         if (this.copyTimeout) {

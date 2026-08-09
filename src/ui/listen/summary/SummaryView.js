@@ -460,30 +460,13 @@ export class SummaryView extends LitElement {
             actions: [],
         };
 
-        const hasAnyContent = data.summary.length > 0 || data.topic.bullets.length > 0 || data.actions.length > 0;
+        const hasAnyContent = data.topic.bullets.length > 0 || data.actions.length > 0;
 
         return html`
             <div class="insights-container">
                 ${!hasAnyContent
                     ? html`<div class="empty-state">No insights yet...</div>`
                     : html`
-                        <insights-title>Current Summary</insights-title>
-                        ${data.summary.length > 0
-                            ? data.summary
-                                  .slice(0, 5)
-                                  .map(
-                                      (bullet, index) => html`
-                                          <div
-                                              class="markdown-content"
-                                              data-markdown-id="summary-${index}"
-                                              data-original-text="${bullet}"
-                                              @click=${() => this.handleMarkdownClick(bullet)}
-                                          >
-                                              ${bullet}
-                                          </div>
-                                      `
-                                  )
-                            : html` <div class="request-item">No content yet...</div> `}
                         ${data.topic.header
                             ? html`
                                   <insights-title>${data.topic.header}</insights-title>
@@ -507,7 +490,7 @@ export class SummaryView extends LitElement {
                             ? html`
                                   <insights-title>Actions</insights-title>
                                   ${data.actions
-                                      .slice(0, 5)
+                                      .slice(0, 20)
                                       .map(
                                           (action, index) => html`
                                               <div

@@ -91,6 +91,32 @@ npm run setup
 
 `Ctrl/Cmd + Arrows` : move main window position
 
+## This Fork's Changes
+
+This is a personal fork with fixes and improvements made while debugging local-first usage on macOS:
+
+- **Local Whisper + VAD for accurate offline STT** — real-time chunking now splits on detected speech pauses (energy-based VAD in `src/features/common/ai/providers/whisper.js`) instead of a fixed timer, fixing mid-word cutoffs. Added [Silero VAD](https://huggingface.co/ggml-org/whisper-vad) at the `whisper-cli` level to eliminate hallucinated captions on silence/background music, plus a hallucination-phrase blocklist (`src/features/listen/stt/sttService.js`) for the ones that still slip through.
+- **Fixed sample-rate mismatch** between the renderer's audio capture (24kHz) and the WAV header Whisper receives (was hardcoded to 16kHz) in `src/features/common/services/whisperService.js`.
+- **Fixed duplicate transcript lines** in the Listen UI — the OpenAI Whisper branch of `sttService.js` was sending every transcription to the renderer twice (once immediately, once again via the debounce/flush path).
+- **Migrated OpenAI Realtime STT (`src/features/common/ai/providers/openai.js`) from the deprecated Beta API to the GA API** (OpenAI retired the beta shape in May 2026) — new `session.update` event shape, no more `OpenAI-Beta` header, `?intent=transcription` query param restored.
+- **Fixed GPT-5.x LLM calls** — newer reasoning models reject a custom `temperature` (only default `1` is supported) and require `max_completion_tokens` instead of `max_tokens`; both are now handled correctly in `src/features/common/ai/providers/openai.js`.
+- **Fixed a streaming-response parsing bug** in `src/features/ask/askService.js` — `TextDecoder.decode()` was called without `{ stream: true }` and SSE lines weren't buffered across network chunks, silently corrupting or dropping multi-byte (Cyrillic etc.) characters mid-stream.
+- **Shortened the Insights analysis prompt for a much smaller token footprint**, added a persistent question list (previously each 5-turn analysis cycle replaced the whole list; now new questions accumulate instead of disappearing), and removed the redundant "Current Summary" block from the Insights panel.
+- **Switched cloud STT to `gpt-live-transcribe`** (OpenAI's July 2026 low-latency live transcription model) instead of `gpt-4o-mini-transcribe` — noticeably better on noisy real-world audio and background speech.
+- **Added a configurable Ask response font size** (Settings → Response Font Size slider), synced across windows via IPC + `electron-store` rather than `localStorage` (which isn't reliably shared across separate `BrowserWindow`s here).
+- **Disabled auto-opening DevTools** on every window in dev mode (`GLASS_DEVTOOLS=1` env var now gates it, off by default).
+
+### Setting up local Whisper + VAD from scratch
+
+Glass downloads the Whisper model automatically on first use. The VAD model needs one manual step:
+
+```bash
+brew install whisper-cpp
+mkdir -p ~/.glass/whisper/models
+curl -L -o ~/.glass/whisper/models/ggml-silero-v6.2.0.bin \
+  "https://huggingface.co/ggml-org/whisper-vad/resolve/main/ggml-silero-v6.2.0.bin"
+```
+
 ## Repo Activity
 
 ![Alt](https://repobeats.axiom.co/api/embed/a23e342faafa84fa8797fa57762885d82fac1180.svg "Repobeats analytics image")

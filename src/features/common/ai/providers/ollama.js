@@ -162,6 +162,7 @@ function createLLM({
                             model,
                             messages,
                             stream: false,
+                            think: false,
                             options: {
                                 temperature,
                                 num_predict: maxTokens,
@@ -201,6 +202,7 @@ function createLLM({
                             model,
                             messages: ollamaMessages,
                             stream: false,
+                            think: false,
                             options: {
                                 temperature,
                                 num_predict: maxTokens,
@@ -254,6 +256,7 @@ function createStreamingLLM({
                             model,
                             messages: ollamaMessages,
                             stream: true,
+                            think: false,
                             options: {
                                 temperature,
                                 num_predict: maxTokens,

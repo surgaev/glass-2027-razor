@@ -52,12 +52,10 @@ async function createSTT({ apiKey, language = 'en', callbacks = {}, usePortkey =
   const headers = keyType === 'apiKey'
     ? {
         'Authorization': `Bearer ${key}`,
-        'OpenAI-Beta': 'realtime=v1',
       }
     : {
         'x-portkey-api-key': 'gRv2UGRMq6GGLJ8aVEB4e7adIewu',
         'x-portkey-virtual-key': key,
-        'OpenAI-Beta': 'realtime=v1',
       };
 
   const ws = new WebSocket(wsUrl, { headers });
@@ -66,27 +64,37 @@ async function createSTT({ apiKey, language = 'en', callbacks = {}, usePortkey =
     ws.onopen = () => {
       console.log("WebSocket session opened.");
 
+      // GA Realtime API session shape (post-beta migration, May 2026):
+      // event type is 'session.update', config nests under session.audio.input
       const sessionConfig = {
-        type: 'transcription_session.update',
+        type: 'session.update',
         session: {
-          input_audio_format: 'pcm16',
-          input_audio_transcription: {
-            model: 'gpt-4o-mini-transcribe',
-            prompt: config.prompt || '',
-            language: language || 'en'
-          },
-          turn_detection: {
-            type: 'server_vad',
-            threshold: 0.5,
-            prefix_padding_ms: 200,
-            silence_duration_ms: 100,
-          },
-          input_audio_noise_reduction: {
-            type: 'near_field'
+          type: 'transcription',
+          audio: {
+            input: {
+              format: {
+                type: 'audio/pcm',
+                rate: 24000
+              },
+              transcription: {
+                model: 'gpt-live-transcribe',
+                prompt: config.prompt || '',
+                language: language || 'en'
+              },
+              turn_detection: {
+                type: 'server_vad',
+                threshold: 0.5,
+                prefix_padding_ms: 300,
+                silence_duration_ms: 700,
+              },
+              noise_reduction: {
+                type: 'near_field'
+              }
+            }
           }
         }
       };
-      
+
       ws.send(JSON.stringify(sessionConfig));
 
       // Helper to periodically keep the websocket alive
@@ -173,8 +181,7 @@ function createLLM({ apiKey, model = 'gpt-4.1', temperature = 0.7, maxTokens = 2
       const response = await client.chat.completions.create({
         model: model,
         messages: messages,
-        temperature: temperature,
-        max_tokens: maxTokens
+        max_completion_tokens: maxTokens
       });
       return {
         content: response.choices[0].message.content.trim(),
@@ -192,8 +199,7 @@ function createLLM({ apiKey, model = 'gpt-4.1', temperature = 0.7, maxTokens = 2
         body: JSON.stringify({
             model: model,
             messages,
-            temperature,
-            max_tokens: maxTokens,
+            max_completion_tokens: maxTokens,
         }),
       });
 
@@ -285,8 +291,7 @@ function createStreamingLLM({ apiKey, model = 'gpt-4.1', temperature = 0.7, maxT
         body: JSON.stringify({
           model: model,
           messages,
-          temperature,
-          max_tokens: maxTokens,
+          max_completion_tokens: maxTokens,
           stream: true,
         }),
       });

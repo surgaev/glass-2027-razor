@@ -482,7 +482,7 @@ function createFeatureWindows(header, namesToCreate) {
                         }
                     });
                 }
-                if (!app.isPackaged) {
+                if (!app.isPackaged && process.env.GLASS_DEVTOOLS === '1') {
                     listen.webContents.openDevTools({ mode: 'detach' });
                 }
                 windowPool.set('listen', listen);
@@ -515,7 +515,7 @@ function createFeatureWindows(header, namesToCreate) {
                 }
                 
                 // Open DevTools in development
-                if (!app.isPackaged) {
+                if (!app.isPackaged && process.env.GLASS_DEVTOOLS === '1') {
                     ask.webContents.openDevTools({ mode: 'detach' });
                 }
                 windowPool.set('ask', ask);
@@ -550,7 +550,7 @@ function createFeatureWindows(header, namesToCreate) {
                 }
                 windowPool.set('settings', settings);  
 
-                if (!app.isPackaged) {
+                if (!app.isPackaged && process.env.GLASS_DEVTOOLS === '1') {
                     settings.webContents.openDevTools({ mode: 'detach' });
                 }
                 break;
@@ -588,7 +588,7 @@ function createFeatureWindows(header, namesToCreate) {
                 }
 
                 windowPool.set('shortcut-settings', shortcutEditor);
-                if (!app.isPackaged) {
+                if (!app.isPackaged && process.env.GLASS_DEVTOOLS === '1') {
                     shortcutEditor.webContents.openDevTools({ mode: 'detach' });
                 }
                 break;
@@ -723,7 +723,7 @@ function createWindows() {
     header.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
     
     // Open DevTools in development
-    if (!app.isPackaged) {
+    if (!app.isPackaged && process.env.GLASS_DEVTOOLS === '1') {
         header.webContents.openDevTools({ mode: 'detach' });
     }
 

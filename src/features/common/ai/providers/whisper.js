@@ -13,6 +13,25 @@ if (typeof window === 'undefined') {
     EventEmitter = DummyEventEmitter;
 }
 
+// Audio format constants (must match the WAV header written by whisperService)
+const VAD_SAMPLE_RATE = 24000;
+const VAD_BYTES_PER_MS = VAD_SAMPLE_RATE * 2 / 1000; // 16-bit mono
+const VAD_SILENCE_RMS_THRESHOLD = 300; // amplitude threshold (0-32767) below which a chunk counts as silence
+const VAD_PAUSE_MS = 900;              // trailing silence needed to flush after speech was detected
+const VAD_MIN_BUFFER_MS = 400;         // ignore pause-flush on near-empty buffers (coughs, clicks)
+const VAD_MAX_BUFFER_MS = 8000;        // hard cap so continuous speech still gets flushed periodically
+
+function computeRms(buffer) {
+    const sampleCount = buffer.length / 2;
+    if (sampleCount === 0) return 0;
+    let sumSquares = 0;
+    for (let i = 0; i + 1 < buffer.length; i += 2) {
+        const sample = buffer.readInt16LE(i);
+        sumSquares += sample * sample;
+    }
+    return Math.sqrt(sumSquares / sampleCount);
+}
+
 class WhisperSTTSession extends EventEmitter {
     constructor(model, whisperService, sessionId) {
         super();
@@ -24,6 +43,8 @@ class WhisperSTTSession extends EventEmitter {
         this.audioBuffer = Buffer.alloc(0);
         this.processingInterval = null;
         this.lastTranscription = '';
+        this.hasSpeechSinceFlush = false;
+        this.silenceMs = 0;
     }
 
     async initialize() {
@@ -40,17 +61,23 @@ class WhisperSTTSession extends EventEmitter {
     }
 
     startProcessingLoop() {
+        // Safety-net only: the real flush decision happens per-chunk in sendRealtimeInput
+        // based on detected speech pauses. This interval just guarantees that continuous
+        // speech (no pause) still gets flushed periodically via the VAD_MAX_BUFFER_MS cap.
         this.processingInterval = setInterval(async () => {
-            const minBufferSize = 16000 * 2 * 0.15;
-            if (this.audioBuffer.length >= minBufferSize && !this.process) {
-                console.log(`[WhisperSTT-${this.sessionId}] Processing audio chunk, buffer size: ${this.audioBuffer.length}`);
+            const bufferMs = this.audioBuffer.length / VAD_BYTES_PER_MS;
+            if (bufferMs >= VAD_MAX_BUFFER_MS && !this.process) {
+                console.log(`[WhisperSTT-${this.sessionId}] Max buffer duration reached, flushing`);
                 await this.processAudioChunk();
             }
-        }, 1500);
+        }, 1000);
     }
 
     async processAudioChunk() {
         if (!this.isRunning || this.audioBuffer.length === 0) return;
+
+        this.hasSpeechSinceFlush = false;
+        this.silenceMs = 0;
 
         const audioData = this.audioBuffer;
         this.audioBuffer = Buffer.alloc(0);
@@ -77,9 +104,12 @@ class WhisperSTTSession extends EventEmitter {
                 '--no-timestamps',
                 '--output-txt',
                 '--output-json',
-                '--language', 'auto',
+                '--language', 'ru',
                 '--threads', '4',
-                '--print-progress', 'false'
+                '--print-progress', 'false',
+                '--suppress-nst',
+                '--vad',
+                '--vad-model', path.join(require('os').homedir(), '.glass', 'whisper', 'models', 'ggml-silero-v6.2.0.bin')
             ]);
 
             let output = '';
@@ -150,6 +180,23 @@ class WhisperSTTSession extends EventEmitter {
             // Log every 10th audio chunk to avoid spam
             if (Math.random() < 0.1) {
                 console.log(`[WhisperSTT-${this.sessionId}] Received audio chunk: ${audioData.length} bytes, total buffer: ${this.audioBuffer.length} bytes`);
+            }
+
+            const chunkMs = audioData.length / VAD_BYTES_PER_MS;
+            const rms = computeRms(audioData);
+            if (rms > VAD_SILENCE_RMS_THRESHOLD) {
+                this.hasSpeechSinceFlush = true;
+                this.silenceMs = 0;
+            } else {
+                this.silenceMs += chunkMs;
+            }
+
+            const bufferMs = this.audioBuffer.length / VAD_BYTES_PER_MS;
+            const pauseDetected = this.hasSpeechSinceFlush && this.silenceMs >= VAD_PAUSE_MS && bufferMs >= VAD_MIN_BUFFER_MS;
+
+            if (pauseDetected && !this.process) {
+                console.log(`[WhisperSTT-${this.sessionId}] Speech pause detected, flushing buffer (${bufferMs.toFixed(0)}ms)`);
+                this.processAudioChunk();
             }
         }
     }

@@ -420,10 +420,27 @@ async function setAutoUpdateSetting(isEnabled) {
     }
 }
 
+function getAskResponseFontSize() {
+    return store.get('askResponseFontSize', 14);
+}
+
+function setAskResponseFontSize(size) {
+    const parsed = parseInt(size, 10);
+    const clamped = Math.min(24, Math.max(11, isNaN(parsed) ? 14 : parsed));
+    store.set('askResponseFontSize', clamped);
+
+    const askWin = windowPool.get('ask');
+    if (askWin && !askWin.isDestroyed()) {
+        askWin.webContents.send('ask:fontSizeUpdate', clamped);
+    }
+
+    return { success: true, size: clamped };
+}
+
 function initialize() {
-    // cleanup 
+    // cleanup
     windowNotificationManager.cleanup();
-    
+
     console.log('[SettingsService] Initialized and ready.');
 }
 
@@ -444,6 +461,8 @@ module.exports = {
     initialize,
     cleanup,
     notifyPresetUpdate,
+    getAskResponseFontSize,
+    setAskResponseFontSize,
     getSettings,
     saveSettings,
     getPresets,
