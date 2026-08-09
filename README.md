@@ -87,18 +87,27 @@ This is a personal fork with fixes and improvements made while debugging local-f
 
 ### Setting up local Whisper + VAD from scratch
 
-Glass downloads the Whisper model automatically on first use. The VAD model needs one manual step:
+1. **Install the `whisper-cli` binary** (Glass looks for it on `PATH` before trying to auto-install its own copy):
+   ```bash
+   brew install whisper-cpp
+   ```
+2. **Download the Silero VAD model** — Glass does not fetch this one automatically, it's a fork-specific addition:
+   ```bash
+   mkdir -p ~/.glass/whisper/models
+   curl -L -o ~/.glass/whisper/models/ggml-silero-v6.2.0.bin \
+     "https://huggingface.co/ggml-org/whisper-vad/resolve/main/ggml-silero-v6.2.0.bin"
+   ```
+3. **Enable Whisper in Settings → select "Whisper Medium" as the model.** Glass supports Tiny/Base/Small/Medium; Tiny is listed first and may get auto-selected by default, but all of this fork's VAD/pause/hallucination tuning was calibrated against **Medium** — smaller models will be faster but noticeably less accurate, larger isn't offered locally here. The `whisper-medium.bin` weights (~1.5GB) then download automatically the first time you start a Listen session.
 
-```bash
-brew install whisper-cpp
-mkdir -p ~/.glass/whisper/models
-curl -L -o ~/.glass/whisper/models/ggml-silero-v6.2.0.bin \
-  "https://huggingface.co/ggml-org/whisper-vad/resolve/main/ggml-silero-v6.2.0.bin"
-```
+**What's automatic vs. what you configure yourself:** every code-level fix and tuning value described above (VAD thresholds, pause-based chunking, sample-rate fix, hallucination blocklist, `gpt-live-transcribe` model, shorter Insights prompt, accumulating question list, font-size setting) is baked into the source and applies the moment you build this fork — nothing to set up for those. What is **not** part of the repo, and still needs to be done per-installation, is provider selection and API keys: which LLM/STT provider is active (OpenAI / Ollama / Whisper) and any API keys live in Glass's local app-data SQLite database (`~/Library/Application Support/Glass/pickleglass.db` on macOS), not in git. Pick your provider and enter your key(s) in Settings after building.
+
+### Checking your OpenAI balance
+
+There is currently no OpenAI API endpoint that returns your remaining USD balance with a standard project-scoped API key — the billing endpoints (`/v1/dashboard/billing/...`) require a browser session, and `/v1/organization/usage/*` needs an org-admin key with a scope regular secret keys don't have. Check your balance manually at [platform.openai.com/settings/organization/billing/overview](https://platform.openai.com/settings/organization/billing/overview).
 
 ## Credits & Upstream
 
-This fork tracks [pickle-com/glass](https://github.com/pickle-com/glass). For the upstream project's roadmap, contributing guide, and community, see the original repository and their [Discord](https://discord.gg/UCZH5B5Hpd).
+This fork tracks [pickle-com/glass](https://github.com/pickle-com/glass) — all credit for the original app, design, and architecture goes to the Pickle team. This fork exists to bring it up to date with current realities (OpenAI's Beta→GA Realtime API migration, newer GPT-5.x/gpt-live-transcribe models) and to fix the local Whisper+VAD path for real day-to-day use — see [This Fork's Changes](#this-forks-changes) above for the full list. For the upstream project's roadmap, contributing guide, and community, see the [original repository](https://github.com/pickle-com/glass) and their [Discord](https://discord.gg/UCZH5B5Hpd).
 
 ---
 
@@ -184,15 +193,24 @@ npm run setup
 
 ### Настройка локального Whisper + VAD с нуля
 
-Glass сам скачивает модель Whisper при первом использовании. Модель VAD требует одного ручного шага:
+1. **Установи бинарник `whisper-cli`** (Glass сначала ищет его в `PATH`, и только потом пытается поставить свою копию сам):
+   ```bash
+   brew install whisper-cpp
+   ```
+2. **Скачай модель Silero VAD** — сам Glass её не подтягивает, это доработка именно этого форка:
+   ```bash
+   mkdir -p ~/.glass/whisper/models
+   curl -L -o ~/.glass/whisper/models/ggml-silero-v6.2.0.bin \
+     "https://huggingface.co/ggml-org/whisper-vad/resolve/main/ggml-silero-v6.2.0.bin"
+   ```
+3. **Включи Whisper в Settings → выбери модель "Whisper Medium".** Glass поддерживает Tiny/Base/Small/Medium; Tiny стоит первой в списке и может выбраться по умолчанию сама, но вся настройка VAD/пауз/фильтра галлюцинаций в этом форке калибровалась именно под **Medium** — модели поменьше будут быстрее, но заметно менее точные, а крупнее локально здесь не предлагается. Сами веса `whisper-medium.bin` (~1.5GB) скачаются автоматически при первом запуске сессии Listen.
 
-```bash
-brew install whisper-cpp
-mkdir -p ~/.glass/whisper/models
-curl -L -o ~/.glass/whisper/models/ggml-silero-v6.2.0.bin \
-  "https://huggingface.co/ggml-org/whisper-vad/resolve/main/ggml-silero-v6.2.0.bin"
-```
+**Что подтягивается автоматически, а что нужно настроить самому:** все правки и калибровка на уровне кода, описанные выше (пороги VAD, нарезка по паузам, фикс частоты дискретизации, чёрный список галлюцинаций, модель `gpt-live-transcribe`, укороченный промпт Insights, накапливающийся список вопросов, настройка размера шрифта) — уже зашиты в исходный код и применяются сразу, как только соберёшь этот форк — тут ничего дополнительно настраивать не нужно. А вот что **не входит** в репозиторий и всё равно нужно сделать самому на каждой установке — это выбор провайдера и API-ключи: какой LLM/STT провайдер активен (OpenAI / Ollama / Whisper) и сами ключи хранятся в локальной SQLite-базе данных приложения Glass (`~/Library/Application Support/Glass/pickleglass.db` на macOS), а не в git. Выбери провайдера и введи ключ(и) в Settings после сборки.
+
+### Как проверить баланс OpenAI
+
+На данный момент у OpenAI нет API-эндпоинта, который возвращал бы остаток баланса в долларах при обычном ключе уровня проекта — биллинг-эндпоинты (`/v1/dashboard/billing/...`) требуют входа через браузерную сессию, а `/v1/organization/usage/*` требует ключ уровня администратора организации со scope, которого у обычных secret-ключей нет. Проверяй баланс вручную на [platform.openai.com/settings/organization/billing/overview](https://platform.openai.com/settings/organization/billing/overview).
 
 ## Благодарности и оригинальный проект
 
-Этот форк отслеживает [pickle-com/glass](https://github.com/pickle-com/glass). Дорожную карту, гайд по контрибьютингу и сообщество оригинального проекта смотри в исходном репозитории и их [Discord](https://discord.gg/UCZH5B5Hpd).
+Этот форк отслеживает [pickle-com/glass](https://github.com/pickle-com/glass) — вся заслуга за оригинальное приложение, дизайн и архитектуру принадлежит команде Pickle. Этот форк существует, чтобы довести проект до текущих реалий (миграция OpenAI Beta→GA Realtime API, новые модели GPT-5.x/gpt-live-transcribe) и починить путь локального Whisper+VAD для реального повседневного использования — полный список см. в разделе [Что изменено в этом форке](#что-изменено-в-этом-форке) выше. Дорожную карту, гайд по контрибьютингу и сообщество оригинального проекта смотри в [исходном репозитории](https://github.com/pickle-com/glass) и их [Discord](https://discord.gg/UCZH5B5Hpd).
