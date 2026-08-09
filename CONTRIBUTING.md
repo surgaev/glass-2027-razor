@@ -1,60 +1,29 @@
-# Contributing to Glass
+# Contributing to Glass 2027 Razor
 
-Thank you for considering contributing to **Glass by Pickle**! Contributions make the open-source community vibrant, innovative, and collaborative. We appreciate every contribution you make—big or small.
+This is a personal fork of [pickle-com/glass](https://github.com/pickle-com/glass), maintained by [@surgaev](https://github.com/surgaev). It exists to keep a local-first Glass setup (offline Whisper + VAD speech recognition, OpenAI's current GA Realtime API) working reliably on macOS. See [ROADMAP.md](./ROADMAP.md) for what's planned.
 
-This document guides you through the entire contribution process, from finding an issue to getting your pull request merged.
+## Reporting a bug or requesting a feature
 
----
+Open an [issue](https://github.com/surgaev/glass-2027-razor/issues) — screenshots, logs (`/tmp/glass-start.log` if you're running via `restart.sh`), and steps to reproduce are the most useful things you can include. For STT/transcription issues, note which provider you're using (local Whisper vs. OpenAI) and whether you're on headphones or speakers (echo/cross-talk between mic and system audio is a common false alarm — see the README).
 
-## 🚀 Contribution Workflow
+General questions, ideas, or "does anyone else see this" posts belong in [Discussions](https://github.com/surgaev/glass-2027-razor/discussions) rather than Issues.
 
-To ensure a smooth and effective workflow, all contributions must go through the following process. Please follow these steps carefully.
+## Submitting a change
 
-### 1. Find or Create an Issue
+1. Fork this repo and branch off `main`.
+2. Keep changes focused — one fix or feature per PR is much easier to review than a mixed bag.
+3. Test manually before opening the PR: `npm run setup`, then actually exercise the Ask and Listen flows you touched. This project doesn't have meaningful automated test coverage yet, so manual verification is the bar.
+4. Open the PR against `main` here, with a short description of *why*, not just *what* — the commit history in this repo tries to explain root causes, not just the fix, and PRs should follow the same habit.
 
-All work begins with an issue. This is the central place to discuss new ideas and track progress.
+## Contributing back upstream
 
--   Browse our existing [**Issues**](https://github.com/pickle-com/glass/issues) to find something you'd like to work on. We recommend looking for issues labeled `good first issue` if you're new!
--   If you have a new idea or find a bug that hasn't been reported, please **create a new issue** using our templates.
+If your fix addresses a bug that also exists in [pickle-com/glass](https://github.com/pickle-com/glass) (not something specific to this fork's local-first setup), consider opening a PR there too — see their [CONTRIBUTING.md](https://github.com/pickle-com/glass/blob/main/CONTRIBUTING.md) for their process, which is more formal (issue-first, `/assign` claiming, design-pattern review). Small, self-contained bug fixes — not this fork's full opinionated VAD/prompt tuning — are the best upstream PR candidates.
 
-### 2. Claim the Issue
+## Project structure
 
-To avoid duplicate work, you must claim an issue before you start coding.
+See the [README](./README.md#this-forks-changes) for a description of what's changed relative to upstream and which files own which behavior — that's the fastest way to find where a given bug likely lives.
 
--   On the issue you want to work on, leave a comment with the command:
-    ```
-    /assign
-    ```
--   Our GitHub bot will automatically assign the issue to you. Once your profile appears in the **`Assignees`** section on the right, you are ready to start development.
-
-### 3. Fork & Create a Branch
-
-Now it's time to set up your local environment.
-
-1.  **Fork** the repository to your own GitHub account.
-2.  **Clone** your forked repository to your local machine.
-3.  **Create a new branch** from `main`. A clear branch name is recommended.
-    -   For new features: `feat/short-description` (e.g., `feat/user-login-ui`)
-    -   For bug fixes: `fix/short-description` (e.g., `fix/header-rendering-bug`)
-
-### 4. Develop
-
-Write your code! As you work, please adhere to our quality standards.
-
--   **Code Style & Quality**: Our project uses `Prettier` and `ESLint` to maintain a consistent code style.
--   **Architecture & Design Patterns**: All new code must be consistent with the project's architecture. Please read our **[Design Patterns Guide](https://github.com/pickle-com/glass/blob/main/docs/DESIGN_PATTERNS.md)** before making significant changes.
-
-### 5. Create a Pull Request (PR)
-
-Once your work is ready, create a Pull Request to the `main` branch of the original repository.
-
--   **Fill out the PR Template**: Our template will appear automatically. Please provide a clear summary of your changes.
--   **Link the Issue**: In the PR description, include the line `Closes #XXX` (e.g., `Closes #123`) to link it to the issue you resolved. This is mandatory.
--   **Code Review**: A maintainer will review your code, provide feedback, and merge it.
-
----
-
-# Developing
+## Developing
 
 ### Prerequisites
 
@@ -75,19 +44,18 @@ node --version
 # nvm use 20
 ```
 
-## Setup and Build
+### Setup and build
 
 ```bash
 npm run setup
 ```
-Please ensure that you can make a full production build before pushing code.
 
+Make sure you can produce a full production build (`npm run build`) before opening a PR.
 
-
-## Linting
+### Linting
 
 ```bash
 npm run lint
 ```
 
-If you get errors, be sure to fix them before committing.
+Fix any errors before committing.

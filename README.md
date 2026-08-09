@@ -132,6 +132,14 @@ Ollama runs any LLM you point it at, but **model size vs. your RAM is the real c
 
 This fork tracks [pickle-com/glass](https://github.com/pickle-com/glass) — all credit for the original app, design, and architecture goes to the Pickle team. This fork exists to bring it up to date with current realities (OpenAI's Beta→GA Realtime API migration, newer GPT-5.x/gpt-live-transcribe models) and to fix the local Whisper+VAD path for real day-to-day use — see [This Fork's Changes](#this-forks-changes) above for the full list. For the upstream project's roadmap, contributing guide, and community, see the [original repository](https://github.com/pickle-com/glass) and their [Discord](https://discord.gg/UCZH5B5Hpd).
 
+See [what's different from upstream](https://github.com/surgaev/glass-2027-razor/compare/main...pickle-com:glass:main) for a live, generated diff.
+
+## Maintainer & Contact
+
+Maintained by **Surgaev** — [www.surgaev.ru/eng](https://www.surgaev.ru/eng/) · Telegram: [@surgaev](https://t.me/surgaev)
+
+Bug reports and feature requests: [Issues](https://github.com/surgaev/glass-2027-razor/issues). General questions and ideas: [Discussions](https://github.com/surgaev/glass-2027-razor/discussions). See [CONTRIBUTING.md](./CONTRIBUTING.md) and [ROADMAP.md](./ROADMAP.md) before opening a PR.
+
 ---
 
 <h1 align="center">Glass 2027 Razor 🪒🧠 (Русская версия)</h1>

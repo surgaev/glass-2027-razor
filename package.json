@@ -1,8 +1,8 @@
 {
-    "name": "pickle-glass",
-    "productName": "Glass",
-    "version": "0.2.4",
-    "description": "Cl*ely for Free",
+    "name": "glass-2027-razor",
+    "productName": "Glass 2027 Razor",
+    "version": "1.0.0",
+    "description": "Personal local-first fork of Glass by Pickle, tuned for real-world offline Whisper+VAD STT and the OpenAI GA Realtime API",
     "main": "src/index.js",
     "scripts": {
         "setup": "npm install && cd pickleglass_web && npm install && npm run build && cd .. && npm start",
@@ -28,8 +28,15 @@
         "contextual ai"
     ],
     "author": {
-        "name": "Pickle Team"
+        "name": "Surgaev",
+        "url": "https://www.surgaev.ru/eng/"
     },
+    "contributors": [
+        {
+            "name": "Pickle Team",
+            "url": "https://pickle.com"
+        }
+    ],
     "license": "GPL-3.0",
     "dependencies": {
         "@anthropic-ai/sdk": "^0.56.0",
