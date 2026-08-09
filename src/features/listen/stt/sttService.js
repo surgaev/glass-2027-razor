@@ -192,14 +192,6 @@ class SttService {
                     
                     if (!isNoise && finalText.length > 2) {
                         this.debounceMyCompletion(finalText);
-                        
-                        this.sendToRenderer('stt-update', {
-                            speaker: 'Me',
-                            text: finalText,
-                            isPartial: false,
-                            isFinal: true,
-                            timestamp: Date.now(),
-                        });
                     } else {
                         console.log(`[Whisper-Me] Filtered noise: "${finalText}"`);
                     }
@@ -334,14 +326,6 @@ class SttService {
                     // Only process if it's not noise, not a false positive, and has meaningful content
                     if (!isNoise && finalText.length > 2) {
                         this.debounceTheirCompletion(finalText);
-                        
-                        this.sendToRenderer('stt-update', {
-                            speaker: 'Them',
-                            text: finalText,
-                            isPartial: false,
-                            isFinal: true,
-                            timestamp: Date.now(),
-                        });
                     } else {
                         console.log(`[Whisper-Them] Filtered noise: "${finalText}"`);
                     }
