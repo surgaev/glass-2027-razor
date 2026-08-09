@@ -370,6 +370,7 @@ class AskService {
     async _processStream(reader, askWin, sessionId, signal) {
         const decoder = new TextDecoder();
         let fullResponse = '';
+        let lineBuffer = '';
 
         try {
             this.state.isLoading = false;
@@ -379,14 +380,23 @@ class AskService {
                 const { done, value } = await reader.read();
                 if (done) break;
 
-                const chunk = decoder.decode(value);
-                const lines = chunk.split('\n').filter(line => line.trim() !== '');
+                // { stream: true } tells TextDecoder to hold back any incomplete
+                // multi-byte UTF-8 sequence at the chunk boundary instead of mangling it
+                // (critical for Cyrillic/other multi-byte text split across network chunks).
+                lineBuffer += decoder.decode(value, { stream: true });
+
+                // SSE lines can also be split across chunk boundaries — only process
+                // complete lines (ending in \n) and carry any trailing partial line over
+                // to be prefixed onto the next chunk.
+                const lines = lineBuffer.split('\n');
+                lineBuffer = lines.pop() || '';
 
                 for (const line of lines) {
+                    if (line.trim() === '') continue;
                     if (line.startsWith('data: ')) {
                         const data = line.substring(6);
                         if (data === '[DONE]') {
-                            return; 
+                            return;
                         }
                         try {
                             const json = JSON.parse(data);
