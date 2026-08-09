@@ -101,9 +101,32 @@ This is a personal fork with fixes and improvements made while debugging local-f
 
 **What's automatic vs. what you configure yourself:** every code-level fix and tuning value described above (VAD thresholds, pause-based chunking, sample-rate fix, hallucination blocklist, `gpt-live-transcribe` model, shorter Insights prompt, accumulating question list, font-size setting) is baked into the source and applies the moment you build this fork — nothing to set up for those. What is **not** part of the repo, and still needs to be done per-installation, is provider selection and API keys: which LLM/STT provider is active (OpenAI / Ollama / Whisper) and any API keys live in Glass's local app-data SQLite database (`~/Library/Application Support/Glass/pickleglass.db` on macOS), not in git. Pick your provider and enter your key(s) in Settings after building.
 
-### Checking your OpenAI balance
+### Choosing an OpenAI model, topping up, and tracking spend
 
-There is currently no OpenAI API endpoint that returns your remaining USD balance with a standard project-scoped API key — the billing endpoints (`/v1/dashboard/billing/...`) require a browser session, and `/v1/organization/usage/*` needs an org-admin key with a scope regular secret keys don't have. Check your balance manually at [platform.openai.com/settings/organization/billing/overview](https://platform.openai.com/settings/organization/billing/overview).
+**Which model to pick** (as of July 2026, OpenAI's current lineup): the **GPT-5.6** family ships in three tiers — **Sol** (flagship), **Terra** (balanced, what this fork defaults to), and **Luna** (cheapest/fastest, $1/$6 per 1M input/output tokens). For everyday use through Glass (Q&A, meeting insights, short answers) Terra is a solid default; Luna is worth switching to for cost if it's enabled for your account (some accounts hit a `missing scopes` permission error on Luna specifically at launch — regenerate your API key with full/unrestricted permissions if you see that). Newer reasoning models (GPT-5.x, GPT-5.6) reject a custom `temperature` value and require `max_completion_tokens` — already handled by this fork's code, no action needed. For STT, this fork uses `gpt-live-transcribe`, OpenAI's July 2026 low-latency model tuned for noisy real-world audio — noticeably better than the older `gpt-4o-mini-transcribe` on real calls.
+
+**Enabling models for your project:** newer/cheaper model tiers aren't always allow-listed for a project by default. Go to [platform.openai.com](https://platform.openai.com) → **Project Settings → Limits → Model usage → Select models** and make sure the models you want (`gpt-5.6-terra`, `gpt-live-transcribe`, etc.) are checked under "Allow".
+
+**Topping up your balance:** [platform.openai.com/settings/organization/billing/overview](https://platform.openai.com/settings/organization/billing/overview) — add a payment method or credits here. Without a balance, every request fails with `insufficient_quota` regardless of which model or API key you use.
+
+**Tracking how much you're spending:** [platform.openai.com/usage](https://platform.openai.com/usage) shows a cost breakdown by day/model in your browser. There is **no API endpoint** that returns your remaining USD balance or spend with a standard project-scoped API key — the billing endpoints (`/v1/dashboard/billing/...`) require a browser session, and `/v1/organization/usage/*` needs an org-admin key with a scope regular secret keys don't have. The `/usage` dashboard page above is the only reliable way to check.
+
+### Running local models with Ollama — hardware guide
+
+Ollama runs any LLM you point it at, but **model size vs. your RAM is the real constraint**, not anything Glass-specific. Reference point from tuning this fork on a **MacBook Pro, Apple M1 Pro, 16GB unified memory**:
+
+| Model | Size on disk | Fits in 16GB? | Notes |
+|---|---|---|---|
+| `qwen3:14b` | 9.3GB | ✅ Comfortably | Best all-round pick at this size — good reasoning, handles Russian well, `--think=false` flag available for instant (non-reasoning) answers |
+| `gemma4:e4b` | 9.6GB | ✅ Comfortably | Lighter/faster alternative, also has a thinking mode disable-able the same way |
+| `deepseek-r1:7b` | 4.7GB on disk, **~11GB in RAM once loaded** | ⚠️ Tight | Strong at math/step-by-step reasoning (chain-of-thought), but always "thinks" — can't disable it, and its large default context window balloons RAM well past the file size |
+| `qwen3.6:27b`, `gemma4:26b`+ | 15–20GB+ | ❌ Does not fit | Anything above ~14B dense parameters is off the table on 16GB — don't bother downloading |
+
+**Key lessons learned tuning this on 16GB:**
+- **RAM usage at runtime is much higher than the file size on disk** — it's driven mostly by the context window (KV cache). The Ollama desktop app's default context length is 64K, which alone can push a 9GB model to 15GB+ resident memory. For a Glass-style short-Q&A workload, dropping context length to **8K** in Ollama's settings (Context length slider) frees several GB with no real downside.
+- **Watch for swap thrashing**: if `Load Average` shoots past ~50 and the whole Mac feels sluggish while a model is "thinking," that's swap, not the model being slow — kill the runaway process (`pkill -9 -f llama-server`) and lower context length or model size rather than waiting it out.
+- **14B dense parameters is roughly the ceiling for smooth day-to-day use on 16GB.** Bigger models will technically load (macOS will swap to disk) but responses become painfully slow.
+- If you're on 16GB and want speed over depth, `gemma4:e4b` with `--think=false` is close to instant; if you want better reasoning at the cost of some speed, `qwen3:14b` is the better default.
 
 ## Credits & Upstream
 
@@ -207,9 +230,32 @@ npm run setup
 
 **Что подтягивается автоматически, а что нужно настроить самому:** все правки и калибровка на уровне кода, описанные выше (пороги VAD, нарезка по паузам, фикс частоты дискретизации, чёрный список галлюцинаций, модель `gpt-live-transcribe`, укороченный промпт Insights, накапливающийся список вопросов, настройка размера шрифта) — уже зашиты в исходный код и применяются сразу, как только соберёшь этот форк — тут ничего дополнительно настраивать не нужно. А вот что **не входит** в репозиторий и всё равно нужно сделать самому на каждой установке — это выбор провайдера и API-ключи: какой LLM/STT провайдер активен (OpenAI / Ollama / Whisper) и сами ключи хранятся в локальной SQLite-базе данных приложения Glass (`~/Library/Application Support/Glass/pickleglass.db` на macOS), а не в git. Выбери провайдера и введи ключ(и) в Settings после сборки.
 
-### Как проверить баланс OpenAI
+### Какую модель OpenAI выбрать, где пополнить баланс и смотреть траты
 
-На данный момент у OpenAI нет API-эндпоинта, который возвращал бы остаток баланса в долларах при обычном ключе уровня проекта — биллинг-эндпоинты (`/v1/dashboard/billing/...`) требуют входа через браузерную сессию, а `/v1/organization/usage/*` требует ключ уровня администратора организации со scope, которого у обычных secret-ключей нет. Проверяй баланс вручную на [platform.openai.com/settings/organization/billing/overview](https://platform.openai.com/settings/organization/billing/overview).
+**Какую модель брать** (актуально на июль 2026): семейство **GPT-5.6** идёт тремя уровнями — **Sol** (флагман), **Terra** (баланс, используется в этом форке по умолчанию) и **Luna** (самая дешёвая/быстрая, $1/$6 за 1M токенов вход/выход). Для повседневной работы через Glass (вопросы, аналитика встреч, короткие ответы) Terra — хороший вариант по умолчанию; на Luna стоит переключиться ради экономии, если она включена для твоего аккаунта (у некоторых аккаунтов на старте была ошибка `missing scopes` именно на Luna — если увидишь такое, перевыпусти API-ключ с полными правами). Новые reasoning-модели (GPT-5.x, GPT-5.6) не принимают кастомную `temperature` и требуют `max_completion_tokens` — это уже обработано в коде этого форка, ничего делать не нужно. Для распознавания речи форк использует `gpt-live-transcribe` — модель OpenAI от июля 2026 для низколатентной транскрипции, заточенная под шумную реальную речь — заметно лучше старой `gpt-4o-mini-transcribe` на реальных звонках.
+
+**Как включить модели для проекта:** новые/дешёвые уровни моделей не всегда разрешены для проекта по умолчанию. Зайди на [platform.openai.com](https://platform.openai.com) → **Project Settings → Limits → Model usage → Select models** и убедись, что нужные модели (`gpt-5.6-terra`, `gpt-live-transcribe` и т.д.) отмечены галочкой под "Allow".
+
+**Пополнение баланса:** [platform.openai.com/settings/organization/billing/overview](https://platform.openai.com/settings/organization/billing/overview) — здесь добавляется способ оплаты или пополняются кредиты. Без баланса любой запрос упадёт с `insufficient_quota`, независимо от модели или ключа.
+
+**Отслеживание трат:** [platform.openai.com/usage](https://platform.openai.com/usage) показывает разбивку расходов по дням/моделям прямо в браузере. **API-эндпоинта**, который бы возвращал остаток баланса в долларах при обычном ключе уровня проекта, **не существует** — биллинг-эндпоинты (`/v1/dashboard/billing/...`) требуют входа через браузерную сессию, а `/v1/organization/usage/*` требует ключ уровня администратора организации со scope, которого у обычных secret-ключей нет. Страница `/usage` выше — единственный надёжный способ проверить траты.
+
+### Локальные модели через Ollama — по железу
+
+Ollama запустит любую LLM, на которую её направишь, но **реальное ограничение — это размер модели против твоей RAM**, а не что-то специфичное для Glass. Ориентир по итогам настройки этого форка на **MacBook Pro, Apple M1 Pro, 16GB unified memory**:
+
+| Модель | Размер на диске | Помещается в 16GB? | Заметки |
+|---|---|---|---|
+| `qwen3:14b` | 9.3GB | ✅ Комфортно | Лучший универсальный выбор такого размера — хорошее рассуждение, нормально работает с русским, есть флаг `--think=false` для мгновенных (без раздумий) ответов |
+| `gemma4:e4b` | 9.6GB | ✅ Комфортно | Более лёгкая/быстрая альтернатива, thinking-режим тоже можно отключить тем же флагом |
+| `deepseek-r1:7b` | 4.7GB на диске, **~11GB в RAM при загрузке** | ⚠️ Впритык | Сильна в математике/пошаговых рассуждениях (chain-of-thought), но всегда "думает" — отключить нельзя, а большое окно контекста по умолчанию раздувает RAM намного больше размера файла |
+| `qwen3.6:27b`, `gemma4:26b`+ | 15–20GB+ | ❌ Не помещается | Всё выше ~14B dense-параметров не вариант для 16GB — даже не стоит скачивать |
+
+**Ключевые выводы по итогам настройки на 16GB:**
+- **Реальный расход RAM в рантайме намного выше размера файла на диске** — это в основном определяется окном контекста (KV-cache). Дефолтная длина контекста в приложении Ollama — 64K, из-за чего даже 9GB-модель может занять 15GB+ реальной памяти. Для сценария коротких вопросов-ответов, как в Glass, снижение длины контекста до **8K** (слайдер Context length в настройках Ollama) освобождает несколько GB без реальных потерь.
+- **Следи за уходом в своп**: если `Load Average` резко подскакивает выше ~50, а весь Mac тормозит, пока модель "думает" — это своп, а не медленная модель сама по себе. Убей зависший процесс (`pkill -9 -f llama-server`) и снижай длину контекста или размер модели, а не жди.
+- **14B dense-параметров — это примерно потолок для комфортной повседневной работы на 16GB.** Модели крупнее технически загрузятся (macOS уйдёт в своп), но ответы станут мучительно медленными.
+- Если на 16GB важнее скорость, чем глубина рассуждений — `gemma4:e4b` с `--think=false` почти мгновенная; если важнее качество рассуждений ценой скорости — `qwen3:14b` лучший вариант по умолчанию.
 
 ## Благодарности и оригинальный проект
 
