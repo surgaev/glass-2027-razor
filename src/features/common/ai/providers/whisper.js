@@ -32,6 +32,66 @@ function computeRms(buffer) {
     return Math.sqrt(sumSquares / sampleCount);
 }
 
+// Whisper's silence hallucinations have a recognisable shape: mixed scripts
+// spliced into an otherwise single-language line, bare repeated "you", stock
+// subtitle-credit phrases, and immediate self-repetition. A fabricated line is
+// worse than a dropped one — it flows into the summary as an "insight" about
+// something that was never said — so this biases hard toward dropping.
+function isLikelyWhisperCliHallucination(raw) {
+    const text = String(raw || '').trim();
+    if (!text) return true;
+
+    // Strip bracketed/parenthesised non-speech annotations first.
+    const withoutAnnotations = text.replace(/[\[(][^\])]*[\])]/g, '').trim();
+    if (!withoutAnnotations) return true;
+
+    // \p{L}/\p{N} (Unicode letter/number categories) instead of a-z0-9 — the
+    // original a-z0-9-only version silently stripped every Cyrillic/CJK/etc.
+    // character, so any non-Latin transcript normalized to '' and got dropped
+    // as a "hallucination" by the check below. This pipeline is pinned to
+    // Russian (see the whisper-cli --language flag above), so that bug muted
+    // nearly every real transcription.
+    const normalized = withoutAnnotations.toLowerCase().replace(/[^\p{L}\p{N}\s']/gu, ' ').trim();
+    if (!normalized) return true;
+
+    const words = normalized.split(/\s+/).filter(Boolean);
+
+    // Mostly non-speech annotation wearing a few real-looking words:
+    // "[crying] (laughing) I'm a bigger girl. [crying] (laughing) [laughs]"
+    const annotationCount = (text.match(/[\[(][^\])]*[\])]/g) || []).length;
+    if (annotationCount >= 2 && annotationCount >= words.length / 2) return true;
+
+    // Mixed scripts inside one short segment. A single Latin loanword dropped
+    // into an otherwise non-Latin sentence is completely ordinary in Russian
+    // business speech ("делаем flow", "нужен фикс") — that alone must NOT
+    // trigger this. What's actually suspicious is Whisper switching languages
+    // mid-segment on silence: two or more separate Latin words sharing a
+    // segment with non-Latin words.
+    const latinWords = words.filter(w => /^[a-z]{2,}$/.test(w));
+    const nonLatinWordCount = words.length - latinWords.length;
+    if (latinWords.length >= 2 && nonLatinWordCount > 0) return true;
+
+    // The classic silence artifact: a bare "you", or "you you you".
+    if (words.every(w => w === 'you')) return true;
+
+    // Whisper's training data was full of subtitled video; on silence it
+    // reaches for the credits.
+    const stockPhrases = [
+        'thank you', 'thanks for watching', 'thank you for watching',
+        'subscribe', 'subtitles by', 'amara org', 'transcription by',
+        "that's it", 'bye bye', 'okay',
+    ];
+    if (words.length <= 6 && stockPhrases.includes(normalized)) return true;
+
+    // Immediate repetition of the same short fragment is a decoder loop, not speech.
+    if (words.length >= 4 && words.length % 2 === 0) {
+        const half = words.length / 2;
+        if (words.slice(0, half).join(' ') === words.slice(half).join(' ')) return true;
+    }
+
+    return false;
+}
+
 class WhisperSTTSession extends EventEmitter {
     constructor(model, whisperService, sessionId) {
         super();
@@ -109,7 +169,17 @@ class WhisperSTTSession extends EventEmitter {
                 '--print-progress', 'false',
                 '--suppress-nst',
                 '--vad',
-                '--vad-model', path.join(require('os').homedir(), '.glass', 'whisper', 'models', 'ggml-silero-v6.2.0.bin')
+                '--vad-model', path.join(require('os').homedir(), '.glass', 'whisper', 'models', 'ggml-silero-v6.2.0.bin'),
+                // Drop segments the model itself scores as non-speech.
+                '--no-speech-thold', '0.6',
+                // Reject low-confidence and high-entropy decodes — hallucinated
+                // spans score badly on both.
+                '--logprob-thold', '-1.0',
+                '--entropy-thold', '2.4',
+                // Greedy, no temperature fallback: the fallback ladder is what
+                // lets the decoder keep retrying until it invents something.
+                '--temperature', '0.0',
+                '--no-fallback',
             ]);
 
             let output = '';
@@ -128,7 +198,9 @@ class WhisperSTTSession extends EventEmitter {
                 
                 if (code === 0 && output.trim()) {
                     const transcription = output.trim();
-                    if (transcription && transcription !== this.lastTranscription) {
+                    if (isLikelyWhisperCliHallucination(transcription)) {
+                        console.log(`[WhisperSTT-${this.sessionId}] Filtered likely hallucination: "${transcription}"`);
+                    } else if (transcription && transcription !== this.lastTranscription) {
                         this.lastTranscription = transcription;
                         console.log(`[WhisperSTT-${this.sessionId}] Transcription: "${transcription}"`);
                         this.emit('transcription', {
