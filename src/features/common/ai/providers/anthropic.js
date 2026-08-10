@@ -7,21 +7,21 @@ class AnthropicProvider {
         }
 
         try {
-            const response = await fetch("https://api.anthropic.com/v1/messages", {
-                method: "POST",
+            // Validate against the models endpoint instead of sending a message tied
+            // to a specific model ID. Pinning a model here means this check breaks
+            // every time Anthropic retires that model — a valid key gets rejected
+            // with a confusing "model not found" error. /v1/models authenticates
+            // the key without naming a model, so it can't rot the same way, and it
+            // costs nothing (no tokens generated).
+            const response = await fetch("https://api.anthropic.com/v1/models", {
+                method: "GET",
                 headers: {
-                    "Content-Type": "application/json",
                     "x-api-key": key,
                     "anthropic-version": "2023-06-01",
                 },
-                body: JSON.stringify({
-                    model: "claude-3-haiku-20240307",
-                    max_tokens: 1,
-                    messages: [{ role: "user", content: "Hi" }],
-                }),
             });
 
-            if (response.ok || response.status === 400) { // 400 is a valid response for a bad request, not a bad key
+            if (response.ok) {
                 return { success: true };
             } else {
                 const errorData = await response.json().catch(() => ({}));
@@ -63,12 +63,12 @@ async function createSTT({ apiKey, language = "en", callbacks = {}, ...config })
  * Creates an Anthropic LLM instance
  * @param {object} opts - Configuration options
  * @param {string} opts.apiKey - Anthropic API key
- * @param {string} [opts.model='claude-3-5-sonnet-20241022'] - Model name
+ * @param {string} [opts.model='claude-sonnet-5'] - Model name
  * @param {number} [opts.temperature=0.7] - Temperature
  * @param {number} [opts.maxTokens=4096] - Max tokens
  * @returns {object} LLM instance
  */
-function createLLM({ apiKey, model = "claude-3-5-sonnet-20241022", temperature = 0.7, maxTokens = 4096, ...config }) {
+function createLLM({ apiKey, model = "claude-sonnet-5", temperature = 0.7, maxTokens = 4096, ...config }) {
   const client = new Anthropic({ apiKey })
 
   return {
@@ -188,14 +188,14 @@ function createLLM({ apiKey, model = "claude-3-5-sonnet-20241022", temperature =
  * Creates an Anthropic streaming LLM instance
  * @param {object} opts - Configuration options
  * @param {string} opts.apiKey - Anthropic API key
- * @param {string} [opts.model='claude-3-5-sonnet-20241022'] - Model name
+ * @param {string} [opts.model='claude-sonnet-5'] - Model name
  * @param {number} [opts.temperature=0.7] - Temperature
  * @param {number} [opts.maxTokens=4096] - Max tokens
  * @returns {object} Streaming LLM instance
  */
 function createStreamingLLM({
   apiKey,
-  model = "claude-3-5-sonnet-20241022",
+  model = "claude-sonnet-5",
   temperature = 0.7,
   maxTokens = 4096,
   ...config
