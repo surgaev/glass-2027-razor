@@ -1,7 +1,7 @@
 {
     "name": "glass-2027-razor",
     "productName": "Glass 2027 Razor",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "description": "Personal local-first fork of Glass by Pickle, tuned for real-world offline Whisper+VAD STT and the OpenAI GA Realtime API",
     "main": "src/index.js",
     "scripts": {
