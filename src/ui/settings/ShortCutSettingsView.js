@@ -6,6 +6,7 @@ const commonSystemShortcuts = new Set([
 ]);
 
 const displayNameMap = {
+    toggleListen: 'Listen / Stop',
     nextStep: 'Ask Anything',
     moveUp: 'Move Up Window',
     moveDown: 'Move Down Window',

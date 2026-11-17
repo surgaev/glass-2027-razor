@@ -79,6 +79,8 @@ This clones-in-place (you're already in the repo), installs dependencies, builds
 
 ## Keyboard Shortcuts
 
+`Cmd + Shift + Enter` (Windows/Linux: `Ctrl + Shift + Enter`) starts or stops Listen, including when the panel is hidden. Change it in Settings → Edit Shortcuts.
+
 `Ctrl/Cmd + \` : show and hide main window
 
 `Ctrl/Cmd + Enter` : ask AI using all your previous screen and audio
@@ -226,6 +228,8 @@ npm run setup
 - Локальный LLM через Ollama, локальный STT через Whisper + Silero VAD (полностью офлайн, без API-ключа)
 
 ## Горячие клавиши
+
+`⌘ + Shift + Enter` (Windows/Linux: `Ctrl + Shift + Enter`) начинает и останавливает запись даже при скрытой панели. Сочетание меняется в Settings → Edit Shortcuts.
 
 `Ctrl/Cmd + \` : показать/скрыть главное окно
 

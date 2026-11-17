@@ -4,13 +4,13 @@
 appId: com.pickle.glass
 
 # The user-facing application name
-productName: Glass
+productName: Glass 2027 Razor
 
 # Publish configuration for GitHub releases
 publish:
     provider: github
-    owner: pickle-com
-    repo: glass
+    owner: surgaev
+    repo: glass-2027-razor
     releaseType: draft
 
 # Protocols configuration for deep linking

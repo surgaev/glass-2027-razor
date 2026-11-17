@@ -473,13 +473,13 @@ export class MainHeader extends LitElement {
 
         if (window.api) {
 
-            this._sessionStateTextListener = (event, { success }) => {
+            this._sessionStateTextListener = (event, { success, action }) => {
                 if (success) {
                     this.listenSessionStatus = ({
-                        beforeSession: 'inSession',
-                        inSession: 'afterSession',
-                        afterSession: 'beforeSession',
-                    })[this.listenSessionStatus] || 'beforeSession';
+                        Listen: 'inSession',
+                        Stop: 'afterSession',
+                        Done: 'beforeSession',
+                    })[action] || 'beforeSession';
                 } else {
                     this.listenSessionStatus = 'beforeSession';
                 }

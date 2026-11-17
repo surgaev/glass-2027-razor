@@ -1073,6 +1073,7 @@ export class SettingsView extends LitElement {
     getMainShortcuts() {
         return [
             { name: 'Show / Hide', accelerator: this.shortcuts.toggleVisibility },
+            { name: 'Listen / Stop', accelerator: this.shortcuts.toggleListen },
             { name: 'Ask Anything', accelerator: this.shortcuts.nextStep },
             { name: 'Scroll Up Response', accelerator: this.shortcuts.scrollUp },
             { name: 'Scroll Down Response', accelerator: this.shortcuts.scrollDown },

@@ -51,7 +51,17 @@ class ListenService {
         console.log('[ListenService] Initialized and ready.');
     }
 
-    async handleListenRequest(listenButtonText) {
+    handleListenRequest(action, options = {}) {
+        // A second toggle can arrive while the first is still loading Whisper.
+        const request = (this.listenRequest || Promise.resolve()).then(() => {
+            const command = action === 'Toggle' ? (this.isSessionActive() ? 'Stop' : 'Listen') : action;
+            return this.changeListenSession(command, options);
+        });
+        this.listenRequest = request.catch(() => {});
+        return request;
+    }
+
+    async changeListenSession(listenButtonText, { showWindow = true } = {}) {
         const { windowPool } = require('../../window/windowManager');
         const listenWindow = windowPool.get('listen');
         const header = windowPool.get('header');
@@ -60,7 +70,8 @@ class ListenService {
             switch (listenButtonText) {
                 case 'Listen':
                     console.log('[ListenService] changeSession to "Listen"');
-                    internalBridge.emit('window:requestVisibility', { name: 'listen', visible: true });
+                    if (showWindow) internalBridge.emit('window:requestVisibility', { name: 'listen', visible: true });
+                    if (this.isSessionActive()) break;
                     if (!await this.initializeSession()) throw new Error('Listen initialization failed');
                     if (listenWindow && !listenWindow.isDestroyed()) {
                         listenWindow.webContents.send('session-state-changed', { isActive: true });
@@ -69,6 +80,7 @@ class ListenService {
         
                 case 'Stop':
                     console.log('[ListenService] changeSession to "Stop"');
+                    if (!this.isSessionActive()) break;
                     const stopped = await this.closeSession();
                     if (!stopped.success) throw new Error(stopped.error);
                     if (listenWindow && !listenWindow.isDestroyed()) {
@@ -86,7 +98,7 @@ class ListenService {
                     throw new Error(`[ListenService] unknown listenButtonText: ${listenButtonText}`);
             }
             
-            header.webContents.send('listen:changeSessionResult', { success: true });
+            header.webContents.send('listen:changeSessionResult', { success: true, action: listenButtonText });
 
         } catch (error) {
             console.error('[ListenService] error in handleListenRequest:', error);

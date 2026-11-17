@@ -65,6 +65,7 @@ class ShortcutsService {
             moveRight: isMac ? 'Cmd+Right' : 'Ctrl+Right',
             toggleVisibility: isMac ? 'Cmd+\\' : 'Ctrl+\\',
             toggleClickThrough: isMac ? 'Cmd+M' : 'Ctrl+M',
+            toggleListen: isMac ? 'Cmd+Shift+Enter' : 'Ctrl+Shift+Enter',
             nextStep: isMac ? 'Cmd+Enter' : 'Ctrl+Enter',
             manualScreenshot: isMac ? 'Cmd+Shift+S' : 'Ctrl+Shift+S',
             previousResponse: isMac ? 'Cmd+[' : 'Ctrl+[',
@@ -92,7 +93,7 @@ class ShortcutsService {
         const defaults = this.getDefaultKeybinds();
         let needsUpdate = false;
         for (const action in defaults) {
-            if (!keybinds[action]) {
+            if (!Object.hasOwn(keybinds, action)) {
                 keybinds[action] = defaults[action];
                 needsUpdate = true;
             }
@@ -126,16 +127,11 @@ class ShortcutsService {
             targetVisibility: targetVisibility
         });
 
-        if (this.allWindowVisibility) {
-            await this.registerShortcuts(true);
-        } else {
-            await this.registerShortcuts();
-        }
-
-        this.allWindowVisibility = !this.allWindowVisibility;
+        this.allWindowVisibility = targetVisibility;
+        await this.registerShortcuts();
     }
 
-    async registerShortcuts(registerOnlyToggleVisibility = false) {
+    async registerShortcuts() {
         if (!this.windowPool) {
             console.error('[Shortcuts] Service not initialized. Cannot register shortcuts.');
             return;
@@ -160,11 +156,24 @@ class ShortcutsService {
         
         sendToRenderer('shortcuts-updated', keybinds);
 
-        if (registerOnlyToggleVisibility) {
+        // Listen is a global control even when the windows are hidden.
+        if (this.windowPool.has('listen') && keybinds.toggleListen) {
+            const registered = globalShortcut.register(keybinds.toggleListen, () => {
+                const now = Date.now();
+                const repeated = now - (this.lastListenKeyTime || 0) < 350;
+                this.lastListenKeyTime = now;
+                if (repeated) return;
+                const listen = require('../listen/listenService');
+                listen.handleListenRequest('Toggle', { showWindow: header.isVisible() })
+                    .catch(error => console.error('[Shortcuts] Listen/Stop failed:', error.message));
+            });
+            if (!registered) console.warn('[Shortcuts] Listen/Stop shortcut is already in use:', keybinds.toggleListen);
+        }
+
+        if (!this.allWindowVisibility) {
             if (keybinds.toggleVisibility) {
                 globalShortcut.register(keybinds.toggleVisibility, () => this.toggleAllWindowsVisibility());
             }
-            console.log('[Shortcuts] registerOnlyToggleVisibility, only toggleVisibility shortcut is registered.');
             return;
         }
 

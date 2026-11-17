@@ -75,7 +75,11 @@ class WhisperService extends EventEmitter {
         try {
             const platform = this.getPlatform();
             const checkCmd = platform === 'win32' ? 'where' : 'which';
-            const { stdout } = await execAsync(`${checkCmd} ${command}`);
+            // Finder launches usually omit the Homebrew prefix from PATH.
+            const env = platform === 'darwin'
+                ? { ...process.env, PATH: [process.env.PATH, '/opt/homebrew/bin', '/usr/local/bin'].filter(Boolean).join(':') }
+                : process.env;
+            const { stdout } = await execAsync(`${checkCmd} ${command}`, { env });
             return stdout.trim();
         } catch (error) {
             return null;
@@ -372,7 +376,7 @@ class WhisperService extends EventEmitter {
         }
 
         console.log('[WhisperService] Installing whisper-cpp via Homebrew...');
-        await spawnAsync('brew', ['install', 'whisper-cpp']);
+        await spawnAsync(brewPath, ['install', 'whisper-cpp']);
         
         const whisperCliPath = await this.checkCommand('whisper-cli');
         if (whisperCliPath) {
