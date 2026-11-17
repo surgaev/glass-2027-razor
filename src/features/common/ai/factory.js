@@ -1,3 +1,4 @@
+const { whisperModels } = require('../config/whisperModels');
 // factory.js
 
 /**
@@ -89,12 +90,7 @@ const PROVIDERS = {
           };
       },
       llmModels: [],
-      sttModels: [
-          { id: 'whisper-tiny', name: 'Whisper Tiny (39M)' },
-          { id: 'whisper-base', name: 'Whisper Base (74M)' },
-          { id: 'whisper-small', name: 'Whisper Small (244M)' },
-          { id: 'whisper-medium', name: 'Whisper Medium (769M)' },
-      ],
+      sttModels: whisperModels,
   },
 };
 

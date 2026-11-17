@@ -77,10 +77,6 @@ const KEEP_ALIVE_INTERVAL_MS = 60 * 1000;         // 1 minute
 // gives a 10-minute safety buffer.
 const SESSION_RENEW_INTERVAL_MS = 20 * 60 * 1000; // 20 minutes
 
-// Duration to allow the old and new sockets to run in parallel so we don't
-// miss any packets at the exact swap moment.
-const SOCKET_OVERLAP_MS = 2 * 1000; // 2 seconds
-
 class SttService {
     constructor() {
         this.mySttSession = null;
@@ -94,6 +90,10 @@ class SttService {
         this.myCompletionTimer = null;
         this.theirCompletionTimer = null;
         
+        this.pendingTranscripts = new Set();
+        this.writeError = null;
+        this.renewing = null;
+
         // System audio capture
         this.systemAudioProc = null;
 
@@ -134,14 +134,22 @@ class SttService {
         }
     }
 
+    persistTranscript(speaker, text) {
+        const pending = Promise.resolve(this.onTranscriptionComplete?.(speaker, text));
+        this.pendingTranscripts.add(pending);
+        pending.then(() => this.pendingTranscripts.delete(pending), error => {
+            this.pendingTranscripts.delete(pending);
+            this.writeError = error;
+            this.onStatusUpdate?.('Saving transcription failed: ' + error.message);
+        });
+    }
+
     flushMyCompletion() {
         const finalText = (this.myCompletionBuffer + this.myCurrentUtterance).trim();
         if (!this.modelInfo || !finalText) return;
 
         // Notify completion callback
-        if (this.onTranscriptionComplete) {
-            this.onTranscriptionComplete('Me', finalText);
-        }
+        this.persistTranscript('Me', finalText);
         
         // Send to renderer as final
         this.sendToRenderer('stt-update', {
@@ -166,9 +174,7 @@ class SttService {
         if (!this.modelInfo || !finalText) return;
         
         // Notify completion callback
-        if (this.onTranscriptionComplete) {
-            this.onTranscriptionComplete('Them', finalText);
-        }
+        this.persistTranscript('Them', finalText);
         
         // Send to renderer as final
         this.sendToRenderer('stt-update', {
@@ -251,7 +257,7 @@ class SttService {
                     ) || isLikelyWhisperHallucination(finalText);
 
 
-                    if (!isNoise && finalText.length > 2) {
+                    if (!isNoise) {
                         this.debounceMyCompletion(finalText);
                     } else {
                         console.log(`[Whisper-Me] Filtered noise: "${finalText}"`);
@@ -385,7 +391,7 @@ class SttService {
 
 
                     // Only process if it's not noise, not a false positive, and has meaningful content
-                    if (!isNoise && finalText.length > 2) {
+                    if (!isNoise) {
                         this.debounceTheirCompletion(finalText);
                     } else {
                         console.log(`[Whisper-Them] Filtered noise: "${finalText}"`);
@@ -485,7 +491,7 @@ class SttService {
             language: effectiveLanguage,
             callbacks: {
                 onmessage: handleMyMessage,
-                onerror: error => console.error('My STT session error:', error.message),
+                onerror: error => this.onStatusUpdate?.('STT error: ' + error.message),
                 onclose: event => console.log('My STT session closed:', event.reason),
             },
         };
@@ -494,7 +500,7 @@ class SttService {
             language: effectiveLanguage,
             callbacks: {
                 onmessage: handleTheirMessage,
-                onerror: error => console.error('Their STT session error:', error.message),
+                onerror: error => this.onStatusUpdate?.('STT error: ' + error.message),
                 onclose: event => console.log('Their STT session closed:', event.reason),
             },
         };
@@ -511,10 +517,16 @@ class SttService {
         const myOptions = { ...sttOptions, callbacks: mySttConfig.callbacks, sessionType: 'my' };
         const theirOptions = { ...sttOptions, callbacks: theirSttConfig.callbacks, sessionType: 'their' };
 
-        [this.mySttSession, this.theirSttSession] = await Promise.all([
+        const sessions = await Promise.allSettled([
             createSTT(this.modelInfo.provider, myOptions),
             createSTT(this.modelInfo.provider, theirOptions),
         ]);
+        const failed = sessions.find(result => result.status === 'rejected');
+        if (failed) {
+            await Promise.allSettled(sessions.filter(result => result.status === 'fulfilled').map(result => result.value.close()));
+            throw failed.reason;
+        }
+        [this.mySttSession, this.theirSttSession] = sessions.map(result => result.value);
 
         console.log('✅ Both STT sessions initialized successfully.');
 
@@ -529,9 +541,12 @@ class SttService {
         this.sessionRenewTimeout = setTimeout(async () => {
             try {
                 console.log('[SttService] Auto-renewing STT sessions…');
-                await this.renewSessions(language);
+                this.renewing = this.renewSessions(language);
+                await this.renewing;
             } catch (err) {
                 console.error('[SttService] Failed to renew STT sessions:', err);
+            } finally {
+                this.renewing = null;
             }
         }, SESSION_RENEW_INTERVAL_MS);
 
@@ -577,16 +592,7 @@ class SttService {
         // pipeline, so audio continues flowing uninterrupted.
         await this.initializeSttSessions(language);
 
-        // Close the old sessions after a short overlap window.
-        setTimeout(() => {
-            try {
-                oldMySession?.close?.();
-                oldTheirSession?.close?.();
-                console.log('[SttService] Old STT sessions closed after hand-off.');
-            } catch (err) {
-                console.error('[SttService] Error closing old STT sessions:', err.message);
-            }
-        }, SOCKET_OVERLAP_MS);
+        await Promise.all([oldMySession.close(), oldTheirSession.close()]);
     }
 
     async sendMicAudioContent(data, mimeType) {
@@ -717,44 +723,35 @@ class SttService {
             throw new Error('STT model info could not be retrieved.');
         }
 
-        this.systemAudioProc.stdout.on('data', async data => {
+        const capture = this.systemAudioProc;
+        const pending = new Set();
+        const forward = chunk => {
+            const data = this.convertStereoToMono(chunk).toString('base64');
+            this.sendToRenderer('system-audio-data', { data });
+            if (!this.theirSttSession) return;
+            const send = this.sendSystemAudioContent(data).catch(error => console.error('Sending system audio failed:', error));
+            pending.add(send);
+            send.finally(() => pending.delete(send));
+        };
+        capture.stdout.on('data', data => {
             audioBuffer = Buffer.concat([audioBuffer, data]);
-
             while (audioBuffer.length >= CHUNK_SIZE) {
-                const chunk = audioBuffer.slice(0, CHUNK_SIZE);
-                audioBuffer = audioBuffer.slice(CHUNK_SIZE);
-
-                const monoChunk = CHANNELS === 2 ? this.convertStereoToMono(chunk) : chunk;
-                const base64Data = monoChunk.toString('base64');
-
-                this.sendToRenderer('system-audio-data', { data: base64Data });
-
-                if (this.theirSttSession) {
-                    try {
-                        let payload;
-                        if (modelInfo.provider === 'gemini') {
-                            payload = { audio: { data: base64Data, mimeType: 'audio/pcm;rate=24000' } };
-                        } else if (modelInfo.provider === 'deepgram') {
-                            payload = Buffer.from(base64Data, 'base64');
-                        } else {
-                            payload = base64Data;
-                        }
-
-                        await this.theirSttSession.sendRealtimeInput(payload);
-                    } catch (err) {
-                        console.error('Error sending system audio:', err.message);
-                    }
-                }
+                forward(audioBuffer.subarray(0, CHUNK_SIZE));
+                audioBuffer = audioBuffer.subarray(CHUNK_SIZE);
             }
+        });
+        this.captureFinished = new Promise(resolve => {
+            capture.once('close', async () => {
+                const completeBytes = audioBuffer.length - audioBuffer.length % 4;
+                if (completeBytes) forward(audioBuffer.subarray(0, completeBytes));
+                await Promise.all(pending);
+                if (this.systemAudioProc === capture) this.systemAudioProc = null;
+                resolve();
+            });
         });
 
         this.systemAudioProc.stderr.on('data', data => {
             console.error('SystemAudioDump stderr:', data.toString());
-        });
-
-        this.systemAudioProc.on('close', code => {
-            console.log('SystemAudioDump process closed with code:', code);
-            this.systemAudioProc = null;
         });
 
         this.systemAudioProc.on('error', err => {
@@ -777,11 +774,15 @@ class SttService {
         return monoBuffer;
     }
 
-    stopMacOSAudioCapture() {
-        if (this.systemAudioProc) {
-            console.log('Stopping SystemAudioDump...');
-            this.systemAudioProc.kill('SIGTERM');
-            this.systemAudioProc = null;
+    async stopMacOSAudioCapture() {
+        const capture = this.systemAudioProc;
+        if (!capture) return;
+        capture.kill('SIGTERM');
+        const timeout = setTimeout(() => capture.kill('SIGKILL'), 2000);
+        try {
+            await this.captureFinished;
+        } finally {
+            clearTimeout(timeout);
         }
     }
 
@@ -790,7 +791,8 @@ class SttService {
     }
 
     async closeSessions() {
-        this.stopMacOSAudioCapture();
+        await this.stopMacOSAudioCapture();
+        if (this.renewing) await this.renewing.catch(error => console.warn(error.message));
 
         // Clear heartbeat / renewal timers
         if (this.keepAliveInterval) {
@@ -822,7 +824,14 @@ class SttService {
             this.theirSttSession = null;
         }
 
-        await Promise.all(closePromises);
+        const closed = await Promise.allSettled(closePromises);
+        clearTimeout(this.myCompletionTimer);
+        clearTimeout(this.theirCompletionTimer);
+        this.flushMyCompletion();
+        this.flushTheirCompletion();
+        await Promise.allSettled(this.pendingTranscripts);
+        const failure = this.writeError || closed.find(result => result.status === 'rejected')?.reason;
+        this.writeError = null;
         console.log('All STT sessions closed.');
 
         // Reset state
@@ -830,7 +839,8 @@ class SttService {
         this.theirCurrentUtterance = '';
         this.myCompletionBuffer = '';
         this.theirCompletionBuffer = '';
-        this.modelInfo = null; 
+        this.modelInfo = null;
+        if (failure) throw failure;
     }
 }
 

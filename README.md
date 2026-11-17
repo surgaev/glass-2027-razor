@@ -100,19 +100,15 @@ This is a personal fork with fixes and improvements made while debugging local-f
 - **Added a configurable Ask response font size** (Settings → Response Font Size slider), synced across windows via IPC + `electron-store` rather than `localStorage` (which isn't reliably shared across separate `BrowserWindow`s here).
 - **Disabled auto-opening DevTools** on every window in dev mode (`GLASS_DEVTOOLS=1` env var now gates it, off by default).
 
+For the optional Portkey gateway, set `PORTKEY_API_KEY` in the environment that starts Glass.
+
 ### Setting up local Whisper + VAD from scratch
 
 1. **Install the `whisper-cli` binary** (Glass looks for it on `PATH` before trying to auto-install its own copy):
    ```bash
    brew install whisper-cpp
    ```
-2. **Download the Silero VAD model** — Glass does not fetch this one automatically, it's a fork-specific addition:
-   ```bash
-   mkdir -p ~/.glass/whisper/models
-   curl -L -o ~/.glass/whisper/models/ggml-silero-v6.2.0.bin \
-     "https://huggingface.co/ggml-org/whisper-vad/resolve/main/ggml-silero-v6.2.0.bin"
-   ```
-3. **Enable Whisper in Settings → select "Whisper Medium" as the model.** Glass supports Tiny/Base/Small/Medium; Tiny is listed first and may get auto-selected by default, but all of this fork's VAD/pause/hallucination tuning was calibrated against **Medium** — smaller models will be faster but noticeably less accurate, larger isn't offered locally here. The `whisper-medium.bin` weights (~1.5GB) then download automatically the first time you start a Listen session.
+2. In Settings, enable Whisper. Its default model is Large v3 Turbo (Q5, 574 MB). Glass downloads the selected model and Silero VAD on first use.
 
 **What's automatic vs. what you configure yourself:** every code-level fix and tuning value described above (VAD thresholds, pause-based chunking, sample-rate fix, hallucination blocklist, `gpt-live-transcribe` model, shorter Insights prompt, accumulating question list, font-size setting) is baked into the source and applies the moment you build this fork — nothing to set up for those. What is **not** part of the repo, and still needs to be done per-installation, is provider selection and API keys: which LLM/STT provider is active (OpenAI / Ollama / Whisper) and any API keys live in Glass's local app-data SQLite database (`~/Library/Application Support/Glass 2027 Razor/pickleglass.db` on macOS), not in git. Pick your provider and enter your key(s) in Settings after building.
 
@@ -258,13 +254,7 @@ npm run setup
    ```bash
    brew install whisper-cpp
    ```
-2. **Скачай модель Silero VAD** — сам Glass её не подтягивает, это доработка именно этого форка:
-   ```bash
-   mkdir -p ~/.glass/whisper/models
-   curl -L -o ~/.glass/whisper/models/ggml-silero-v6.2.0.bin \
-     "https://huggingface.co/ggml-org/whisper-vad/resolve/main/ggml-silero-v6.2.0.bin"
-   ```
-3. **Включи Whisper в Settings → выбери модель "Whisper Medium".** Glass поддерживает Tiny/Base/Small/Medium; Tiny стоит первой в списке и может выбраться по умолчанию сама, но вся настройка VAD/пауз/фильтра галлюцинаций в этом форке калибровалась именно под **Medium** — модели поменьше будут быстрее, но заметно менее точные, а крупнее локально здесь не предлагается. Сами веса `whisper-medium.bin` (~1.5GB) скачаются автоматически при первом запуске сессии Listen.
+2. В Settings включи Whisper. По умолчанию выбрана модель Large v3 Turbo (Q5, 574 МБ). При первом использовании Glass скачает выбранную модель и Silero VAD.
 
 **Что подтягивается автоматически, а что нужно настроить самому:** все правки и калибровка на уровне кода, описанные выше (пороги VAD, нарезка по паузам, фикс частоты дискретизации, чёрный список галлюцинаций, модель `gpt-live-transcribe`, укороченный промпт Insights, накапливающийся список вопросов, настройка размера шрифта) — уже зашиты в исходный код и применяются сразу, как только соберёшь этот форк — тут ничего дополнительно настраивать не нужно. А вот что **не входит** в репозиторий и всё равно нужно сделать самому на каждой установке — это выбор провайдера и API-ключи: какой LLM/STT провайдер активен (OpenAI / Ollama / Whisper) и сами ключи хранятся в локальной SQLite-базе данных приложения Glass (`~/Library/Application Support/Glass 2027 Razor/pickleglass.db` на macOS), а не в git. Выбери провайдера и введи ключ(и) в Settings после сборки.
 

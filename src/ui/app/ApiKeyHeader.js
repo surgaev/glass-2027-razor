@@ -1,3 +1,4 @@
+import { whisperModels, defaultWhisperModel } from '../../features/common/config/whisperModels';
 import { html, css, LitElement } from '../assets/lit-core-2.7.4.min.js';
 
 export class ApiKeyHeader extends LitElement {
@@ -340,7 +341,7 @@ export class ApiKeyHeader extends LitElement {
         this.modelSuggestions = [];
         this.userModelHistory = [];
         this.selectedLlmModel = '';
-        this.selectedSttModel = '';
+        this.selectedSttModel = defaultWhisperModel;
         this.ollamaStatus = { installed: false, running: false };
         this.installingModel = null;
         this.installProgress = 0;
@@ -2026,12 +2027,7 @@ export class ApiKeyHeader extends LitElement {
                                             ?disabled=${this.isLoading}
                                         >
                                             <option value="">Select a model...</option>
-                                            ${[
-                                                { id: 'whisper-tiny', name: 'Whisper Tiny (39M)' },
-                                                { id: 'whisper-base', name: 'Whisper Base (74M)' },
-                                                { id: 'whisper-small', name: 'Whisper Small (244M)' },
-                                                { id: 'whisper-medium', name: 'Whisper Medium (769M)' },
-                                            ].map(model => html` <option value="${model.id}">${model.name}</option> `)}
+                                            ${whisperModels.map(model => html` <option value="${model.id}">${model.name}</option> `)}
                                         </select>
                                         ${this.sttError ? html`<div class="inline-error-message">${this.sttError}</div>` : ''}
                                     </div>

@@ -27,6 +27,14 @@ const DOWNLOAD_CHECKSUMS = {
                 url: 'https://huggingface.co/ggml-org/whisper.cpp/resolve/main/ggml-small.bin',
                 sha256: '1be3a9b2063867b937e64e2ec7483364a79917e157fa98c5d94b5c1fffea987b'
             },
+            'whisper-large-v3-turbo-q5_0': {
+                url: 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-turbo-q5_0.bin',
+                sha256: '394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2'
+            },
+            'ggml-silero-v6.2.0': {
+                url: 'https://huggingface.co/ggml-org/whisper-vad/resolve/main/ggml-silero-v6.2.0.bin',
+                sha256: '2aa269b785eeb53a82983a20501ddf7c1d9c48e33ab63a41391ac6c9f7fb6987'
+            },
             'whisper-medium': {
                 url: 'https://huggingface.co/ggml-org/whisper.cpp/resolve/main/ggml-medium.bin',
                 sha256: '6c14d5adee5f86394037b4e4e8b59f1673b6cee10e3cf0b11bbdbee79c156208'

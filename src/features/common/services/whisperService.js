@@ -25,6 +25,7 @@ class WhisperService extends EventEmitter {
         
         // 세션 관리 (세션 풀 내장)
         this.sessionPool = [];
+        this.pendingDownloads = new Map();
         this.activeSessions = new Map();
         this.maxSessions = 3;
         
@@ -50,6 +51,11 @@ class WhisperService extends EventEmitter {
                 name: 'Small',
                 size: '244M',
                 url: 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin'
+            },
+            'whisper-large-v3-turbo-q5_0': {
+                name: 'Large v3 Turbo (Q5)',
+                size: '574 MB',
+                url: DOWNLOAD_CHECKSUMS.whisper.models['whisper-large-v3-turbo-q5_0'].url
             },
             'whisper-medium': {
                 name: 'Medium',
@@ -91,83 +97,34 @@ class WhisperService extends EventEmitter {
         const { 
             onProgress = null,
             headers = { 'User-Agent': 'Glass-App' },
-            timeout = 300000,
-            modelId = null
+            timeout = 300000
         } = options;
 
-        return new Promise((resolve, reject) => {
-            const file = fs.createWriteStream(destination);
-            let downloadedSize = 0;
-            let totalSize = 0;
-
-            const request = https.get(url, { headers }, (response) => {
-                if ([301, 302, 307, 308].includes(response.statusCode)) {
-                    file.close();
-                    fs.unlink(destination, () => {});
-                    
-                    if (!response.headers.location) {
-                        reject(new Error('Redirect without location header'));
-                        return;
-                    }
-                    
-                    console.log(`[${this.serviceName}] Following redirect from ${url} to ${response.headers.location}`);
-                    this.downloadFile(response.headers.location, destination, options)
-                        .then(resolve)
-                        .catch(reject);
-                    return;
-                }
-
-                if (response.statusCode !== 200) {
-                    file.close();
-                    fs.unlink(destination, () => {});
-                    reject(new Error(`Download failed: ${response.statusCode} ${response.statusMessage}`));
-                    return;
-                }
-
-                totalSize = parseInt(response.headers['content-length'], 10) || 0;
-
-                response.on('data', (chunk) => {
-                    downloadedSize += chunk.length;
-                    
-                    if (totalSize > 0) {
-                        const progress = Math.round((downloadedSize / totalSize) * 100);
-                        
-                        if (onProgress) {
-                            onProgress(progress, downloadedSize, totalSize);
-                        }
-                    }
-                });
-
-                response.pipe(file);
-
-                file.on('finish', () => {
-                    file.close(() => {
-                        resolve({ success: true, size: downloadedSize });
-                    });
-                });
-            });
-
-            request.on('timeout', () => {
-                request.destroy();
-                file.close();
-                fs.unlink(destination, () => {});
-                reject(new Error('Download timeout'));
-            });
-
-            request.on('error', (err) => {
-                file.close();
-                fs.unlink(destination, () => {});
-                this.emit('download-error', { url, error: err, modelId });
-                reject(err);
-            });
-
-            request.setTimeout(timeout);
-
-            file.on('error', (err) => {
-                fs.unlink(destination, () => {});
-                reject(err);
-            });
+        const response = await new Promise((resolve, reject) => {
+            const request = https.get(url, { headers }, resolve);
+            request.setTimeout(timeout, () => request.destroy(new Error('Download timeout')));
+            request.on('error', reject);
         });
+        if ([301, 302, 303, 307, 308].includes(response.statusCode)) {
+            response.resume();
+            const redirects = options.redirects || 0;
+            if (!response.headers.location || redirects >= 8) throw new Error('Invalid download redirect');
+            return this.downloadFile(new URL(response.headers.location, url), destination, {
+                ...options, redirects: redirects + 1
+            });
+        }
+        if (response.statusCode !== 200) {
+            response.resume();
+            throw new Error(`Download failed: ${response.statusCode}`);
+        }
+        const total = Number(response.headers['content-length']);
+        let size = 0;
+        response.on('data', chunk => {
+            size += chunk.length;
+            if (total) onProgress?.(Math.round(size * 100 / total), size, total);
+        });
+        await require('stream/promises').pipeline(response, fs.createWriteStream(destination));
+        return { success: true, size };
     }
 
     async downloadWithRetry(url, destination, options = {}) {
@@ -442,41 +399,40 @@ class WhisperService extends EventEmitter {
             throw new Error(`Unknown model: ${modelId}. Available models: ${Object.keys(this.availableModels).join(', ')}`);
         }
 
-        const modelPath = await this.getModelPath(modelId);
-        try {
-            await fsPromises.access(modelPath, fs.constants.R_OK);
-            console.log(`[WhisperService] Model ${modelId} already available at: ${modelPath}`);
-        } catch (error) {
-            console.log(`[WhisperService] Model ${modelId} not found, downloading...`);
-            await this.downloadModel(modelId);
-        }
+        await this.ensureAsset(modelId, modelInfo);
+        await this.ensureAsset('ggml-silero-v6.2.0', DOWNLOAD_CHECKSUMS.whisper.models['ggml-silero-v6.2.0']);
     }
 
-    async downloadModel(modelId) {
-        const modelInfo = this.availableModels[modelId];
-        const modelPath = await this.getModelPath(modelId);
-        const checksumInfo = DOWNLOAD_CHECKSUMS.whisper.models[modelId];
-        
-        // Emit progress event - LocalAIManager가 처리
-        this.emit('install-progress', { 
-            model: modelId, 
-            progress: 0 
-        });
-        
-        await this.downloadWithRetry(modelInfo.url, modelPath, {
-            expectedChecksum: checksumInfo?.sha256,
-            modelId, // pass modelId to LocalAIServiceBase for event handling
-            onProgress: (progress) => {
-                // Emit progress event - LocalAIManager가 처리
-                this.emit('install-progress', { 
-                    model: modelId, 
-                    progress 
-                });
-            }
-        });
-        
-        console.log(`[WhisperService] Model ${modelId} downloaded successfully`);
-        this.emit('model-download-complete', { modelId });
+    downloadModel(modelId) {
+        return this.ensureModelAvailable(modelId);
+    }
+
+    async ensureAsset(id, info) {
+        const destination = await this.getModelPath(id);
+        if (!this.pendingDownloads.has(id)) {
+            const install = async () => {
+                try {
+                    await fsPromises.access(destination, fs.constants.R_OK);
+                    if (id !== 'ggml-silero-v6.2.0' || await this.verifyChecksum(destination, info.sha256)) return;
+                } catch (error) {
+                    if (error.code !== 'ENOENT') throw error;
+                }
+                const temporary = destination + '.' + crypto.randomUUID() + '.part';
+                try {
+                    await this.downloadWithRetry(info.url, temporary, {
+                        modelId: id,
+                        expectedChecksum: DOWNLOAD_CHECKSUMS.whisper.models[id]?.sha256,
+                        onProgress: progress => this.emit('install-progress', { model: id, progress })
+                    });
+                    await fsPromises.rename(temporary, destination);
+                    this.emit('model-download-complete', { modelId: id });
+                } finally {
+                    await fsPromises.rm(temporary, { force: true });
+                }
+            };
+            this.pendingDownloads.set(id, install().finally(() => this.pendingDownloads.delete(id)));
+        }
+        await this.pendingDownloads.get(id);
     }
 
     async handleDownloadModel(modelId) {

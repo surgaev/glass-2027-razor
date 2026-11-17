@@ -289,6 +289,25 @@ setInterval(() => {
 // ---------------------------
 // Audio processing functions (exact from renderer.js)
 // ---------------------------
+const captureTails = new Map();
+const pendingSends = new Set();
+
+function sendCapturedAudio(send, payload) {
+    const pending = send(payload).catch(error => console.error('Sending captured audio failed:', error));
+    pendingSends.add(pending);
+    pending.finally(() => pendingSends.delete(pending));
+    return pending;
+}
+
+function registerTail(processor, buffer, send) {
+    captureTails.set(processor, () => {
+        processor.onaudioprocess = null;
+        if (!buffer.length) return;
+        const pcm = convertFloat32ToInt16(buffer.splice(0));
+        sendCapturedAudio(send, { data: arrayBufferToBase64(pcm.buffer), mimeType: 'audio/pcm;rate=24000' });
+    });
+}
+
 async function setupMicProcessing(micStream) {
     /* ── WASM 먼저 로드 ───────────────────────── */
     const mod = await getAec();
@@ -303,6 +322,7 @@ async function setupMicProcessing(micStream) {
     let audioBuffer = [];
     const samplesPerChunk = SAMPLE_RATE * AUDIO_CHUNK_DURATION;
 
+    registerTail(micProcessor, audioBuffer, window.api.listenCapture.sendMicAudioContent);
     micProcessor.onaudioprocess = (e) => {
         const inputData = e.inputBuffer.getChannelData(0);
         audioBuffer.push(...inputData);
@@ -328,7 +348,7 @@ async function setupMicProcessing(micStream) {
             const pcm16 = convertFloat32ToInt16(processedChunk);
             const b64 = arrayBufferToBase64(pcm16.buffer);
 
-            window.api.listenCapture.sendMicAudioContent({
+            sendCapturedAudio(window.api.listenCapture.sendMicAudioContent, {
                 data: b64,
                 mimeType: 'audio/pcm;rate=24000',
             });
@@ -351,6 +371,7 @@ function setupLinuxMicProcessing(micStream) {
     let audioBuffer = [];
     const samplesPerChunk = SAMPLE_RATE * AUDIO_CHUNK_DURATION;
 
+    registerTail(micProcessor, audioBuffer, window.api.listenCapture.sendMicAudioContent);
     micProcessor.onaudioprocess = async e => {
         const inputData = e.inputBuffer.getChannelData(0);
         audioBuffer.push(...inputData);
@@ -361,7 +382,7 @@ function setupLinuxMicProcessing(micStream) {
             const pcmData16 = convertFloat32ToInt16(chunk);
             const base64Data = arrayBufferToBase64(pcmData16.buffer);
 
-            await window.api.listenCapture.sendMicAudioContent({
+            sendCapturedAudio(window.api.listenCapture.sendMicAudioContent, {
                 data: base64Data,
                 mimeType: 'audio/pcm;rate=24000',
             });
@@ -383,6 +404,7 @@ function setupSystemAudioProcessing(systemStream) {
     let audioBuffer = [];
     const samplesPerChunk = SAMPLE_RATE * AUDIO_CHUNK_DURATION;
 
+    registerTail(systemProcessor, audioBuffer, window.api.listenCapture.sendSystemAudioContent);
     systemProcessor.onaudioprocess = async e => {
         const inputData = e.inputBuffer.getChannelData(0);
         if (!inputData || inputData.length === 0) return;
@@ -395,7 +417,7 @@ function setupSystemAudioProcessing(systemStream) {
             const base64Data = arrayBufferToBase64(pcmData16.buffer);
 
             try {
-                await window.api.listenCapture.sendSystemAudioContent({
+                sendCapturedAudio(window.api.listenCapture.sendSystemAudioContent, {
                     data: base64Data,
                     mimeType: 'audio/pcm;rate=24000',
                 });
@@ -571,7 +593,9 @@ async function startCapture(screenshotIntervalSeconds = 5, imageQuality = 'mediu
     }
 }
 
-function stopCapture() {
+async function stopCapture() {
+    for (const flush of captureTails.values()) flush();
+    captureTails.clear();
     // Clean up microphone resources
     if (audioProcessor) {
         audioProcessor.disconnect();
@@ -602,9 +626,11 @@ function stopCapture() {
         micMediaStream = null;
     }
 
+    await Promise.all(pendingSends);
+
     // Stop macOS audio capture if running
     if (isMacOS) {
-        window.api.listenCapture.stopMacosSystemAudio().catch(err => {
+        await window.api.listenCapture.stopMacosSystemAudio().catch(err => {
             console.error('Error stopping macOS audio:', err);
         });
     }

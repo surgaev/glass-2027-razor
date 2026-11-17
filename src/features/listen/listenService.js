@@ -20,9 +20,7 @@ class ListenService {
     setupServiceCallbacks() {
         // STT service callbacks
         this.sttService.setCallbacks({
-            onTranscriptionComplete: (speaker, text) => {
-                this.handleTranscriptionComplete(speaker, text);
-            },
+            onTranscriptionComplete: (speaker, text) => this.handleTranscriptionComplete(speaker, text),
             onStatusUpdate: (status) => {
                 this.sendToRenderer('update-status', status);
             }
@@ -63,7 +61,7 @@ class ListenService {
                 case 'Listen':
                     console.log('[ListenService] changeSession to "Listen"');
                     internalBridge.emit('window:requestVisibility', { name: 'listen', visible: true });
-                    await this.initializeSession();
+                    if (!await this.initializeSession()) throw new Error('Listen initialization failed');
                     if (listenWindow && !listenWindow.isDestroyed()) {
                         listenWindow.webContents.send('session-state-changed', { isActive: true });
                     }
@@ -71,7 +69,8 @@ class ListenService {
         
                 case 'Stop':
                     console.log('[ListenService] changeSession to "Stop"');
-                    await this.closeSession();
+                    const stopped = await this.closeSession();
+                    if (!stopped.success) throw new Error(stopped.error);
                     if (listenWindow && !listenWindow.isDestroyed()) {
                         listenWindow.webContents.send('session-state-changed', { isActive: false });
                     }
@@ -123,6 +122,7 @@ class ListenService {
             console.log(`[DB] Saved transcript for session ${this.currentSessionId}: (${speaker})`);
         } catch (error) {
             console.error('Failed to save transcript to DB:', error);
+            throw error;
         }
     }
 
@@ -175,37 +175,33 @@ class ListenService {
             const MAX_RETRY = 10;
             const RETRY_DELAY_MS = 300;   // 0.3 seconds
 
-            let sttReady = false;
             for (let attempt = 1; attempt <= MAX_RETRY; attempt++) {
                 try {
                     await this.sttService.initializeSttSessions(language);
-                    sttReady = true;
                     break;                         // Exit on success
                 } catch (err) {
                     console.warn(
                         `[ListenService] STT init attempt ${attempt} failed: ${err.message}`
                     );
-                    if (attempt < MAX_RETRY) {
-                        await new Promise(r => setTimeout(r, RETRY_DELAY_MS));
-                    }
+                    if (attempt === MAX_RETRY) throw err;
+                    await new Promise(r => setTimeout(r, RETRY_DELAY_MS));
                 }
             }
-            if (!sttReady) throw new Error('STT init failed after retries');
             /* ------------------------------------------- */
 
             console.log('✅ Listen service initialized successfully.');
             
             this.sendToRenderer('update-status', 'Connected. Ready to listen.');
+            this.sendToRenderer('change-listen-capture-state', { status: 'start' });
             
             return true;
         } catch (error) {
             console.error('❌ Failed to initialize listen service:', error);
-            this.sendToRenderer('update-status', 'Initialization failed.');
+            this.sendToRenderer('update-status', 'Initialization failed: ' + error.message);
             return false;
         } finally {
             this.isInitializingSession = false;
             this.sendToRenderer('session-initializing', false);
-            this.sendToRenderer('change-listen-capture-state', { status: "start" });
         }
     }
 
@@ -221,7 +217,7 @@ class ListenService {
     }
 
     async stopMacOSAudioCapture() {
-        this.sttService.stopMacOSAudioCapture();
+        await this.sttService.stopMacOSAudioCapture();
     }
 
     isSessionActive() {
@@ -230,7 +226,15 @@ class ListenService {
 
     async closeSession() {
         try {
-            this.sendToRenderer('change-listen-capture-state', { status: "stop" });
+            const { windowPool } = require('../../window/windowManager');
+            const listenWindow = windowPool.get('listen');
+            if (listenWindow && !listenWindow.isDestroyed()) {
+                try {
+                    await listenWindow.webContents.executeJavaScript('window.pickleGlass?.stopCapture?.()');
+                } catch (error) {
+                    console.warn('Could not drain renderer capture:', error.message);
+                }
+            }
             // Close STT sessions
             await this.sttService.closeSessions();
 

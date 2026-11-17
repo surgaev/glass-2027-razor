@@ -1,8 +1,8 @@
-let spawn, path, EventEmitter;
+const { defaultWhisperModel } = require('../../config/whisperModels');
+let spawn, EventEmitter;
 
 if (typeof window === 'undefined') {
     spawn = require('child_process').spawn;
-    path = require('path');
     EventEmitter = require('events').EventEmitter;
 } else {
     class DummyEventEmitter {
@@ -21,19 +21,9 @@ const VAD_PAUSE_MS = 900;              // trailing silence needed to flush after
 const VAD_MIN_BUFFER_MS = 400;         // ignore pause-flush on near-empty buffers (coughs, clicks)
 const VAD_MAX_BUFFER_MS = 8000;        // hard cap so continuous speech still gets flushed periodically
 
-function computeRms(buffer) {
-    const sampleCount = buffer.length / 2;
-    if (sampleCount === 0) return 0;
-    let sumSquares = 0;
-    for (let i = 0; i + 1 < buffer.length; i += 2) {
-        const sample = buffer.readInt16LE(i);
-        sumSquares += sample * sample;
-    }
-    return Math.sqrt(sumSquares / sampleCount);
-}
+const { computeRms } = require('./pcm');
 
-// Whisper's silence hallucinations have a recognisable shape: mixed scripts
-// spliced into an otherwise single-language line, bare repeated "you", stock
+// Whisper's silence hallucinations include bare repeated "you", stock
 // subtitle-credit phrases, and immediate self-repetition. A fabricated line is
 // worse than a dropped one — it flows into the summary as an "insight" about
 // something that was never said — so this biases hard toward dropping.
@@ -60,16 +50,6 @@ function isLikelyWhisperCliHallucination(raw) {
     // "[crying] (laughing) I'm a bigger girl. [crying] (laughing) [laughs]"
     const annotationCount = (text.match(/[\[(][^\])]*[\])]/g) || []).length;
     if (annotationCount >= 2 && annotationCount >= words.length / 2) return true;
-
-    // Mixed scripts inside one short segment. A single Latin loanword dropped
-    // into an otherwise non-Latin sentence is completely ordinary in Russian
-    // business speech ("делаем flow", "нужен фикс") — that alone must NOT
-    // trigger this. What's actually suspicious is Whisper switching languages
-    // mid-segment on silence: two or more separate Latin words sharing a
-    // segment with non-Latin words.
-    const latinWords = words.filter(w => /^[a-z]{2,}$/.test(w));
-    const nonLatinWordCount = words.length - latinWords.length;
-    if (latinWords.length >= 2 && nonLatinWordCount > 0) return true;
 
     // The classic silence artifact: a bare "you", or "you you you".
     if (words.every(w => w === 'you')) return true;
@@ -98,11 +78,10 @@ class WhisperSTTSession extends EventEmitter {
         this.model = model;
         this.whisperService = whisperService;
         this.sessionId = sessionId || `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-        this.process = null;
+        this.processing = null;
         this.isRunning = false;
         this.audioBuffer = Buffer.alloc(0);
         this.processingInterval = null;
-        this.lastTranscription = '';
         this.hasSpeechSinceFlush = false;
         this.silenceMs = 0;
     }
@@ -126,24 +105,30 @@ class WhisperSTTSession extends EventEmitter {
         // speech (no pause) still gets flushed periodically via the VAD_MAX_BUFFER_MS cap.
         this.processingInterval = setInterval(async () => {
             const bufferMs = this.audioBuffer.length / VAD_BYTES_PER_MS;
-            if (bufferMs >= VAD_MAX_BUFFER_MS && !this.process) {
+            if (bufferMs >= VAD_MAX_BUFFER_MS && !this.processing) {
                 console.log(`[WhisperSTT-${this.sessionId}] Max buffer duration reached, flushing`);
                 await this.processAudioChunk();
             }
         }, 1000);
     }
 
-    async processAudioChunk() {
-        if (!this.isRunning || this.audioBuffer.length === 0) return;
+    processAudioChunk() {
+        if (!this.processing && this.audioBuffer.length) {
+            this.processing = this.transcribeBuffer().finally(() => { this.processing = null; });
+        }
+        return this.processing;
+    }
 
+    async transcribeBuffer() {
         this.hasSpeechSinceFlush = false;
         this.silenceMs = 0;
 
         const audioData = this.audioBuffer;
         this.audioBuffer = Buffer.alloc(0);
 
+        let tempFile;
         try {
-            const tempFile = await this.whisperService.saveAudioToTemp(audioData, this.sessionId);
+            tempFile = await this.whisperService.saveAudioToTemp(audioData, this.sessionId);
             
             if (!tempFile || typeof tempFile !== 'string') {
                 console.error('[WhisperSTT] Invalid temp file path:', tempFile);
@@ -158,18 +143,15 @@ class WhisperSTTSession extends EventEmitter {
                 return;
             }
 
-            this.process = spawn(whisperPath, [
+            const child = spawn(whisperPath, [
                 '-m', modelPath,
                 '-f', tempFile,
                 '--no-timestamps',
-                '--output-txt',
-                '--output-json',
                 '--language', 'ru',
                 '--threads', '4',
-                '--print-progress', 'false',
                 '--suppress-nst',
                 '--vad',
-                '--vad-model', path.join(require('os').homedir(), '.glass', 'whisper', 'models', 'ggml-silero-v6.2.0.bin'),
+                '--vad-model', await this.whisperService.getModelPath('ggml-silero-v6.2.0'),
                 // Drop segments the model itself scores as non-speech.
                 '--no-speech-thold', '0.6',
                 // Reject low-confidence and high-entropy decodes — hallucinated
@@ -185,41 +167,39 @@ class WhisperSTTSession extends EventEmitter {
             let output = '';
             let errorOutput = '';
 
-            this.process.stdout.on('data', (data) => {
+            child.stdout.on('data', (data) => {
                 output += data.toString();
             });
 
-            this.process.stderr.on('data', (data) => {
+            child.stderr.on('data', (data) => {
                 errorOutput += data.toString();
             });
 
-            this.process.on('close', async (code) => {
-                this.process = null;
-                
-                if (code === 0 && output.trim()) {
-                    const transcription = output.trim();
-                    if (isLikelyWhisperCliHallucination(transcription)) {
-                        console.log(`[WhisperSTT-${this.sessionId}] Filtered likely hallucination: "${transcription}"`);
-                    } else if (transcription && transcription !== this.lastTranscription) {
-                        this.lastTranscription = transcription;
-                        console.log(`[WhisperSTT-${this.sessionId}] Transcription: "${transcription}"`);
-                        this.emit('transcription', {
-                            text: transcription,
-                            timestamp: Date.now(),
-                            confidence: 1.0,
-                            sessionId: this.sessionId
-                        });
-                    }
-                } else if (errorOutput) {
-                    console.error(`[WhisperSTT-${this.sessionId}] Process error:`, errorOutput);
-                }
-
-                await this.whisperService.cleanupTempFile(tempFile);
+            const code = await new Promise((resolve, reject) => {
+                child.once('error', reject);
+                child.once('close', resolve);
             });
-
+            if (code === 0 && output.trim()) {
+                const transcription = output.trim();
+                if (isLikelyWhisperCliHallucination(transcription)) {
+                    console.log(`[WhisperSTT-${this.sessionId}] Filtered likely hallucination: "${transcription}"`);
+                } else {
+                    console.log(`[WhisperSTT-${this.sessionId}] Transcription: "${transcription}"`);
+                    this.emit('transcription', {
+                        text: transcription,
+                        timestamp: Date.now(),
+                        confidence: 1.0,
+                        sessionId: this.sessionId
+                    });
+                }
+            } else if (errorOutput) {
+                console.error(`[WhisperSTT-${this.sessionId}] Process error:`, errorOutput);
+            }
         } catch (error) {
             console.error('[WhisperSTT] Processing error:', error);
             this.emit('error', error);
+        } finally {
+            if (tempFile) await this.whisperService.cleanupTempFile(tempFile);
         }
     }
 
@@ -266,7 +246,7 @@ class WhisperSTTSession extends EventEmitter {
             const bufferMs = this.audioBuffer.length / VAD_BYTES_PER_MS;
             const pauseDetected = this.hasSpeechSinceFlush && this.silenceMs >= VAD_PAUSE_MS && bufferMs >= VAD_MIN_BUFFER_MS;
 
-            if (pauseDetected && !this.process) {
+            if (pauseDetected && !this.processing) {
                 console.log(`[WhisperSTT-${this.sessionId}] Speech pause detected, flushing buffer (${bufferMs.toFixed(0)}ms)`);
                 this.processAudioChunk();
             }
@@ -282,10 +262,8 @@ class WhisperSTTSession extends EventEmitter {
             this.processingInterval = null;
         }
 
-        if (this.process) {
-            this.process.kill('SIGTERM');
-            this.process = null;
-        }
+        await this.processing;
+        if (this.audioBuffer.length) await this.processAudioChunk();
 
         this.removeAllListeners();
     }
@@ -313,7 +291,7 @@ class WhisperProvider {
     async createSTT(config) {
         await this.initialize();
         
-        const model = config.model || 'whisper-tiny';
+        const model = config.model || defaultWhisperModel;
         const sessionType = config.sessionType || 'unknown';
         console.log(`[WhisperProvider] Creating ${sessionType} STT session with model: ${model}`);
         

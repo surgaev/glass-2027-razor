@@ -1,3 +1,4 @@
+const { defaultWhisperModel } = require('../config/whisperModels');
 const { EventEmitter } = require('events');
 const Store = require('electron-store');
 const { PROVIDERS, getProviderClass } = require('../ai/factory');
@@ -153,7 +154,8 @@ class ModelStateService extends EventEmitter {
                         const provider = this.getProviderForModel(model.id, type);
                         return provider && provider !== 'ollama' && provider !== 'whisper';
                     });
-                    const newModel = apiModel || availableModels[0];
+                    const defaultStt = type === 'stt' && availableModels.find(model => model.id === defaultWhisperModel);
+                    const newModel = defaultStt || apiModel || availableModels[0];
                     await this.setSelectedModel(type, newModel.id);
                     console.log(`[ModelStateService] Auto-selected ${type.toUpperCase()} model: ${newModel.id}`);
                 } else {
